@@ -20,7 +20,6 @@ services:
       - OJS_API_KEY_SECRET=
 
 volumes:
-  db:
   private-files:
   public-files:
   cache:
