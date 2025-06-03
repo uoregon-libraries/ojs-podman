@@ -16,6 +16,3 @@ services:
       - OJS_SANDBOX=On
       - OJS_SALT=
       - OJS_API_KEY_SECRET=
-
-    # This removes the db dependency so an external database can be used
-    depends_on: !reset []
