@@ -18,18 +18,6 @@ services:
       - OJS_SANDBOX=On
       - OJS_SALT=
       - OJS_API_KEY_SECRET=
-    depends_on:
-      - db
-
-  db:
-    image: mariadb
-    environment:
-      - MYSQL_DATABASE=ojs
-      - MYSQL_USER=ojs
-      - MYSQL_PASSWORD=ojs
-      - MYSQL_ROOT_PASSWORD=root_password
-    volumes:
-      - db:/var/lib/mysql
 
 volumes:
   db:
