@@ -1,0 +1,39 @@
+name: ojs
+services:
+  web:
+    build:
+      context: .
+    volumes:
+      - private-files:/var/local/ojs-files
+      - public-files:/var/www/html/public
+      - cache:/var/www/html/cache
+      - config:/var/local/config
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=ojs
+      - MYSQL_USER=ojs
+      - MYSQL_PASSWORD=ojs
+      - OJS_BASE_URL=http://localhost
+      - OJS_ALLOWED_HOSTS=["localhost"]
+      - OJS_SANDBOX=On
+      - OJS_SALT=
+      - OJS_API_KEY_SECRET=
+    depends_on:
+      - db
+
+  db:
+    image: mariadb
+    environment:
+      - MYSQL_DATABASE=ojs
+      - MYSQL_USER=ojs
+      - MYSQL_PASSWORD=ojs
+      - MYSQL_ROOT_PASSWORD=root_password
+    volumes:
+      - db:/var/lib/mysql
+
+volumes:
+  db:
+  private-files:
+  public-files:
+  cache:
+  config:

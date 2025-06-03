@@ -1,0 +1,23 @@
+services:
+  web:
+    # Expose the web app to the host - this will be required for dev and prod
+    ports:
+      - 8080:80
+
+    # Adjust these based on your environment
+    environment:
+      - OJS_BASE_URL=http://localhost
+      - OJS_ALLOWED_HOSTS=["localhost"]
+      - OJS_SANDBOX=On
+      - OJS_SALT=
+      - OJS_API_KEY_SECRET=
+
+    # Use something like this to remove the db dependency if prod uses an
+    # external db. Obviously you'd also need to specify the DB info above.
+    depends_on: !reset []
+
+  # If you need to do local db debugging or something, you can expose the ports
+  # like this. Do **not** do this in production!
+  db:
+    ports:
+      - 3306:3306
