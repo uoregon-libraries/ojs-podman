@@ -16,3 +16,9 @@ services:
       - OJS_SANDBOX=On
       - OJS_SALT=
       - OJS_API_KEY_SECRET=
+
+      # These are passed to Apache so that we can tell PHP (Symfony in
+      # particular) that we're in a secure environment. The request URL is
+      # using "https", generated URLs should be "https", etc.
+      - SERVER_PORT=443
+      - HTTPS=on

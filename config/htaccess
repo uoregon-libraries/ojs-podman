@@ -1,3 +1,7 @@
+# Pass through these env vars to "lie" to PHP (Symfony) if needed
+PassEnv HTTPS
+PassEnv SERVER_PORT
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
