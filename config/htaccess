@@ -1,0 +1,22 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    RewriteRule ^api/v1(.*)$ /index.php/api/v1$1 [L,R=307]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(.*)$ /index.php/$1 [QSA,L]
+</IfModule>
+
+# Deny access to specific configuration and documentation files
+<FilesMatch "^(babel\.config\.js|config\.inc\.php|config\.TEMPLATE\.inc\.php|cypress\.config\.js|cypress\.travis\.env\.json|package\.json|package-lock\.json|README\.md|schemaspy\.properties|SECURITY\.md|vue\.config\.js)$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Prevent access to any files starting with a dot
+<FilesMatch "^\.">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Prevent directory listing
+Options -Indexes
