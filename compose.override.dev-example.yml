@@ -1,0 +1,30 @@
+services:
+  web:
+    ports:
+      - 8080:80
+
+    environment:
+      - OJS_BASE_URL=http://localhost
+      - OJS_ALLOWED_HOSTS=["localhost"]
+      - OJS_SANDBOX=On
+      - OJS_SALT=
+      - OJS_API_KEY_SECRET=
+    depends_on:
+      - db
+
+  # For dev, defining a local database is helpful
+  db:
+    image: mariadb
+    ports:
+      - 3306:3306
+    environment:
+      - MYSQL_DATABASE=ojs
+      - MYSQL_USER=ojs
+      - MYSQL_PASSWORD=ojs
+      - MYSQL_ROOT_PASSWORD=root_password
+    volumes:
+      - db:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  db:
