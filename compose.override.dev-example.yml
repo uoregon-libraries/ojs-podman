@@ -4,7 +4,7 @@ services:
       - 8080:80
 
     environment:
-      - OJS_BASE_URL=http://localhost
+      - OJS_BASE_URL=http://localhost:8080
       - OJS_ALLOWED_HOSTS=["localhost"]
       - OJS_SANDBOX=On
       - OJS_SALT=
