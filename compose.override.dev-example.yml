@@ -9,6 +9,8 @@ services:
       - OJS_SANDBOX=On
       - OJS_SALT=
       - OJS_API_KEY_SECRET=
+      - SERVER_PORT=8080
+      - HTTPS=off
     depends_on:
       - db
 

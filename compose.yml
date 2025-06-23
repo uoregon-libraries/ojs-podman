@@ -18,6 +18,8 @@ services:
       - OJS_SANDBOX=On
       - OJS_SALT=
       - OJS_API_KEY_SECRET=
+      - HTTPS=
+      - SERVER_PORT=
 
 volumes:
   private-files:
