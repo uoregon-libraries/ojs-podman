@@ -42,6 +42,11 @@ RUN a2enmod rewrite
 RUN a2enmod headers
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
+# Give PHP some sane config settings
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+RUN sed -i 's/upload_max_filesize\s*=.*$/upload_max_filesize = 1024M/' "$PHP_INI_DIR/php.ini"
+RUN sed -i 's/post_max_size\s*=.*$/post_max_size = 1024M/' "$PHP_INI_DIR/php.ini"
+
 # Now copy in all the files we customize
 COPY config/htaccess /var/www/html/.htaccess
 RUN chmod 644 .htaccess
