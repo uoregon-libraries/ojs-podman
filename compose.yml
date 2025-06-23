@@ -6,6 +6,7 @@ services:
     volumes:
       - private-files:/var/local/ojs-files
       - public-files:/var/www/html/public
+      - plugins:/var/www/html/plugins
       - cache:/var/www/html/cache
       - config:/var/local/config
     environment:
@@ -24,5 +25,6 @@ services:
 volumes:
   private-files:
   public-files:
+  plugins:
   cache:
   config:

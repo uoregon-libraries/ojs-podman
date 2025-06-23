@@ -29,8 +29,9 @@ RUN find . -type d -exec chmod +rx {} \;
 VOLUME /var/local/ojs-files
 VOLUME /var/www/html/cache
 VOLUME /var/www/html/public
-RUN mkdir -p /var/local/ojs-files /var/www/html/cache /var/www/html/public
-RUN chown -R www-data:www-data /var/local/ojs-files /var/www/html/cache /var/www/html/public
+VOLUME /var/www/html/plugins
+RUN mkdir -p /var/local/ojs-files /var/www/html/cache /var/www/html/public /var/www/html/plugins
+RUN chown -R www-data:www-data /var/local/ojs-files /var/www/html/cache /var/www/html/public /var/www/html/plugins
 
 # Create a dir for the config file which we can mount locally for editing
 VOLUME /var/local/config
