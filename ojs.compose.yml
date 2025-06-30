@@ -1,4 +1,3 @@
-name: ojs
 services:
   web:
     build:
@@ -10,17 +9,17 @@ services:
       - cache:/var/www/html/cache
       - config:/var/local/config
     environment:
-      - MYSQL_HOST=db
-      - MYSQL_DATABASE=ojs
-      - MYSQL_USER=ojs
-      - MYSQL_PASSWORD=ojs
-      - OJS_BASE_URL=http://localhost
-      - OJS_ALLOWED_HOSTS=["localhost"]
-      - OJS_SANDBOX=On
-      - OJS_SALT=
-      - OJS_API_KEY_SECRET=
-      - HTTPS=
-      - SERVER_PORT=
+      MYSQL_HOST: "db"
+      MYSQL_DATABASE: "ojs"
+      MYSQL_USER: "ojs"
+      MYSQL_PASSWORD: "ojs"
+      OJS_BASE_URL: ""
+      OJS_ALLOWED_HOSTS: ""
+      OJS_SANDBOX: "On"
+      OJS_SALT: ""
+      OJS_API_KEY_SECRET: ""
+      HTTPS: ""
+      SERVER_PORT: ""
 
 volumes:
   private-files:
