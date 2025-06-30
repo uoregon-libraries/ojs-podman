@@ -49,11 +49,11 @@ RUN sed -i 's/upload_max_filesize\s*=.*$/upload_max_filesize = 1024M/' "$PHP_INI
 RUN sed -i 's/post_max_size\s*=.*$/post_max_size = 1024M/' "$PHP_INI_DIR/php.ini"
 
 # Now copy in all the files we customize
-COPY config/htaccess /var/www/html/.htaccess
+COPY docker/config/htaccess /var/www/html/.htaccess
 RUN chmod 644 .htaccess
 
 # Set up our custom entrypoint and configgy stuff
-COPY config/config-template.ini /config-template.ini
+COPY docker/config/config-template.ini /config-template.ini
 COPY docker/entrypoint.sh /entrypoint.sh
 COPY docker/replace-vars.sh /replace-vars.sh
 CMD ["apache2-foreground"]
