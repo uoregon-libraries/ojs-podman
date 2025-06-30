@@ -1,5 +1,11 @@
-# Example overrides, assuming you pull `ojs.compose.yaml` and `db.compose.yml`
-# into your main compose file
+# Example overrides for a dev environment, assuming you pull `ojs.compose.yaml`
+# and `db.compose.yml` into your main compose file. This shows how your web
+# environment might look in development, and includes the `init.sql` file for
+# the database to be initialized with a dummy admin user.
+#
+# For a production setup, you might not use the db service, in which case you'd
+# have to specify the database env vars here to point to an external database,
+# and you'd want to set things like HTTPS to "on", turn off sandbox, etc.
 services:
   web:
     environment:
@@ -17,3 +23,5 @@ services:
   db:
     ports:
       - 3306:3306
+    volumes:
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
