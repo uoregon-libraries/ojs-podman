@@ -1,0 +1,13 @@
+services:
+  db:
+    image: mariadb
+    environment:
+      MYSQL_DATABASE: "ojs"
+      MYSQL_USER: "ojs"
+      MYSQL_PASSWORD: "ojs"
+      MYSQL_ROOT_PASSWORD: "root_password"
+    volumes:
+      - db:/var/lib/mysql
+
+volumes:
+  db:
