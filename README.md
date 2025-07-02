@@ -2,8 +2,8 @@
 
 (Technically podman or docker compose work)
 
-This project builds a docker image for OJS, downloading a stable version of
-their production-ready app, and providing configuration for running in
+This project builds a docker image for OJS v3.3.0, downloading a stable version
+of their production-ready app, and providing configuration for running in
 production or locally.
 
 ## Architecture / Overview
@@ -13,10 +13,10 @@ consistency as possible across environments. No local code is copied into the
 image other than "wrapper" stuff like Apache overrides, the base app
 configuration template, etc.
 
-The database is initialized in dev setups so that you don't have to run the web
-installer, and you don't need the config file to be writeable by Apache. In
-production you can use `docker/init.sql` directly if desired, or use the
-installer and manage the config file more directly.
+The database needs to be initialized using the `init.sql` file, or else you'll
+have to run the installer, which means first modifying your OJS config directly
+in the container / volume. See the config section below for details on editing
+the configuration for this exact situation.
 
 When containers are started up, because the image defines a new entrypoint,
 there's a one-time step which will swap configuration variables from the
@@ -25,7 +25,9 @@ should do this explicitly on a per-environment basis.
 
 *Note that this substitution happens only once*. After the first startup, your
 settings can only be changed by editing the configuration file directly. This
-is something we hope to improve in time.
+is something we hope to improve in time, but it becomes tricky as there are
+cases where the file needs to be edited manually, and those edits need to be
+preserved.
 
 The "config" volume looks weird, but is done this way in order to keep the
 config totally separated from the code: it starts as an empty directory, and on
@@ -38,35 +40,53 @@ backing up and restoring easier, as well as mounting it for editing.
 
 ### Compose
 
-You *must* set up an override per environment. We provide two example files:
-`compose.override.prod-example.yml` is meant to be a good starting point for a
-production setup, while `compose.override.dev-example.yml` is good for local
-dev/testing. Rename one of them to `compose.override.yml` and set it up as
-needed. For development, minimal changes should be necessary.
+We've set up our compose files to reflect the complexity of needing to combine
+services with overrides on a per-service basis, relying heavily on the compose
+spec's "include" directive. This approach makes it easier to set up systems
+that rely on the same base services, but have small tweaks per environment.
 
-**Read the overrides carefully!** Adjust settings as needed for your
+**Major caveat, though**: it turns out some versions (maybe most?) of
+podman-compose do *not* support the "include" directive! If using podman,
+you'll want to either set up the compose files manually, or use `docker compose
+config -f ...` to have a flat compose setup generated for you.
+
+To use compose, you must set up a compose.yml *and* any overrides you want for
+a given environment. We provide a [compose.yml example][2], which is just a
+very simple setup for combining the OJS and DB service definitions. There's
+also an [example compose override][3] for specifying per-environment settings
+if you want to have a base `compose.yml` that defines a core setup you reuse
+across environments.
+
+**Read the override example carefully!** Adjust settings as needed for your
 environment. The various environment variables should be fairly obvious, but
 they essentially just replace values in the config file, as mentioned above.
 
-Also note that the "dev" override example provides a database, rather than
-putting it in the base compose. Our production system uses a central database
-server, and podman-compose (at least our version) doesn't respect the `!reset`
-directive to remove things like `depends_on`.
+We strongly recommend familiarizing yourself not only with the [compose
+spec][1], but also with the details of [using multiple compose files][4].
+Understanding `include` and `extend`, how overrides work, what merging does,
+etc. can be critical to making your project work well across environments.
 
-### OJS Config
+[1]: <https://docs.docker.com/reference/compose-file/>
+[2]: <compose-example.yml>
+[3]: <compose.override-example.yml>
+[4]: <https://docs.docker.com/compose/how-tos/multiple-compose-files/>
+
+### Modifying Config
 
 You should usually be able to set your compose environment variables, which
 then get injected into the config file, and not have to edit config manually.
-However, there are cases where a one-off config edit is necessary. In these
+
+However, there are cases where direct config edits are necessary. In these
 situations, your best bet is either an in-container edit (e.g., with `sed`), or
 copying config out of the volume, editing it, and then copying it back in.
 
-If you want to use the web installer (for production you may not want to use
-the `init.sql` to set up an admin user): start the stack, edit the in-container
-config to specify `installed = Off`, then browse to the app. The web installer
-will let you create a new user and set up various configuration values. Note
-that you'll have to edit them in manually or do some low-level in-container
-permission hacking. For security we make the config file read-only.
+If you want to use the web installer rather than the included `init.sql` (for
+production you may not want to our "admin" user): start the stack, edit the
+in-container config to specify `installed = Off`, then browse to the app. The
+web installer will let you create a new user and set up various configuration
+values. Note that you'll have to edit the configuration manually a second time,
+or else change the in-container permission setup. For security we make the
+config file read-only.
 
 ### Web
 
