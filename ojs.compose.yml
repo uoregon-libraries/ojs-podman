@@ -15,6 +15,7 @@ services:
       MYSQL_PASSWORD: "ojs"
       OJS_BASE_URL: ""
       OJS_ALLOWED_HOSTS: ""
+      OJS_SANDBOX: "On"
       OJS_SALT: ""
       OJS_API_KEY_SECRET: ""
       HTTPS: ""

@@ -1,4 +1,5 @@
-FROM php:8.0-apache
+# PHP 8.1 is essential here - 8.2 and later give us problems
+FROM php:8.1-apache
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -16,12 +17,12 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql
 RUN docker-php-ext-install mysqli
-RUN docker-php-ext-install mbstring xml exif pcntl bcmath gd zip intl
+RUN docker-php-ext-install mbstring exif pcntl bcmath gd zip intl
 
 # Grab the production package from the website before any custom stuff since
 # this is one of the least likely steps to change
 WORKDIR /var/www/html
-RUN curl -L https://pkp.sfu.ca/ojs/download/ojs-3.3.0-21.tar.gz | tar -xz --strip-components=1
+RUN curl -L https://pkp.sfu.ca/ojs/download/ojs-3.4.0-9.tar.gz | tar -xz --strip-components=1
 RUN find . -type d -exec chmod +rx {} \;
 
 # Create and set permissions for dirs apache needs to write
@@ -46,10 +47,6 @@ RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 RUN sed -i 's/upload_max_filesize\s*=.*$/upload_max_filesize = 1024M/' "$PHP_INI_DIR/php.ini"
 RUN sed -i 's/post_max_size\s*=.*$/post_max_size = 1024M/' "$PHP_INI_DIR/php.ini"
-
-# Make sure the migration has all the resources we can give it
-RUN sed -i 's/memory_limit\s*=.*$/memory_limit = -1/' "$PHP_INI_DIR/php.ini"
-RUN sed -i 's/max_execution_time\s*=.*$/max_execution_time = -1/' "$PHP_INI_DIR/php.ini"
 
 # Now copy in all the files we customize
 COPY docker/config/htaccess /var/www/html/.htaccess

@@ -30,8 +30,10 @@ CREATE TABLE `access_keys` (
   `assoc_id` bigint(20) DEFAULT NULL,
   `expiry_date` datetime NOT NULL,
   PRIMARY KEY (`access_key_id`),
-  KEY `access_keys_hash` (`key_hash`,`user_id`,`context`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `access_keys_user_id` (`user_id`),
+  KEY `access_keys_hash` (`key_hash`,`user_id`,`context`),
+  CONSTRAINT `access_keys_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Access keys are used to provide pseudo-login functionality for security-minimal tasks. Passkeys can be emailed directly to users, who can use them for a limited time in lieu of standard username and password.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -51,14 +53,16 @@ DROP TABLE IF EXISTS `announcement_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `announcement_settings` (
+  `announcement_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `announcement_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  `setting_type` varchar(6) DEFAULT NULL,
-  UNIQUE KEY `announcement_settings_pkey` (`announcement_id`,`locale`,`setting_name`),
-  KEY `announcement_settings_announcement_id` (`announcement_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`announcement_setting_id`),
+  UNIQUE KEY `announcement_settings_unique` (`announcement_id`,`locale`,`setting_name`),
+  KEY `announcement_settings_announcement_id` (`announcement_id`),
+  CONSTRAINT `announcement_settings_announcement_id_foreign` FOREIGN KEY (`announcement_id`) REFERENCES `announcements` (`announcement_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about announcements, including localized properties like names and contents.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -78,14 +82,17 @@ DROP TABLE IF EXISTS `announcement_type_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `announcement_type_settings` (
+  `announcement_type_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `type_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `announcement_type_settings_pkey` (`type_id`,`locale`,`setting_name`),
-  KEY `announcement_type_settings_type_id` (`type_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`announcement_type_setting_id`),
+  UNIQUE KEY `announcement_type_settings_unique` (`type_id`,`locale`,`setting_name`),
+  KEY `announcement_type_settings_type_id` (`type_id`),
+  CONSTRAINT `announcement_type_settings_type_id_foreign` FOREIGN KEY (`type_id`) REFERENCES `announcement_types` (`type_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about announcement types, including localized properties like their names.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -106,11 +113,11 @@ DROP TABLE IF EXISTS `announcement_types`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `announcement_types` (
   `type_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `assoc_type` smallint(6) NOT NULL,
-  `assoc_id` bigint(20) NOT NULL,
+  `context_id` bigint(20) NOT NULL,
   PRIMARY KEY (`type_id`),
-  KEY `announcement_types_assoc` (`assoc_type`,`assoc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `announcement_types_context_id` (`context_id`),
+  CONSTRAINT `announcement_types_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Announcement types allow for announcements to optionally be categorized.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -137,8 +144,10 @@ CREATE TABLE `announcements` (
   `date_expire` date DEFAULT NULL,
   `date_posted` datetime NOT NULL,
   PRIMARY KEY (`announcement_id`),
-  KEY `announcements_assoc` (`assoc_type`,`assoc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `announcements_type_id` (`type_id`),
+  KEY `announcements_assoc` (`assoc_type`,`assoc_id`),
+  CONSTRAINT `announcements_type_id_foreign` FOREIGN KEY (`type_id`) REFERENCES `announcement_types` (`type_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Announcements are messages that can be presented to users e.g. on the homepage.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -151,32 +160,6 @@ LOCK TABLES `announcements` WRITE;
 UNLOCK TABLES;
 
 --
--- Table structure for table `auth_sources`
---
-
-DROP TABLE IF EXISTS `auth_sources`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `auth_sources` (
-  `auth_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `title` varchar(60) NOT NULL,
-  `plugin` varchar(32) NOT NULL,
-  `auth_default` smallint(6) NOT NULL DEFAULT 0,
-  `settings` text DEFAULT NULL,
-  PRIMARY KEY (`auth_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `auth_sources`
---
-
-LOCK TABLES `auth_sources` WRITE;
-/*!40000 ALTER TABLE `auth_sources` DISABLE KEYS */;
-/*!40000 ALTER TABLE `auth_sources` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `author_settings`
 --
 
@@ -184,13 +167,16 @@ DROP TABLE IF EXISTS `author_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `author_settings` (
+  `author_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `author_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  UNIQUE KEY `author_settings_pkey` (`author_id`,`locale`,`setting_name`),
-  KEY `author_settings_author_id` (`author_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`author_setting_id`),
+  UNIQUE KEY `author_settings_unique` (`author_id`,`locale`,`setting_name`),
+  KEY `author_settings_author_id` (`author_id`),
+  CONSTRAINT `author_settings_author_id` FOREIGN KEY (`author_id`) REFERENCES `authors` (`author_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about authors, including localized properties such as their name and affiliation.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -217,8 +203,11 @@ CREATE TABLE `authors` (
   `seq` double(8,2) NOT NULL DEFAULT 0.00,
   `user_group_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`author_id`),
-  KEY `authors_publication_id` (`publication_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `authors_user_group_id` (`user_group_id`),
+  KEY `authors_publication_id` (`publication_id`),
+  CONSTRAINT `authors_publication_id_foreign` FOREIGN KEY (`publication_id`) REFERENCES `publications` (`publication_id`) ON DELETE CASCADE,
+  CONSTRAINT `authors_user_group_id_foreign` FOREIGN KEY (`user_group_id`) REFERENCES `user_groups` (`user_group_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='The authors of a publication.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -240,14 +229,18 @@ DROP TABLE IF EXISTS `categories`;
 CREATE TABLE `categories` (
   `category_id` bigint(20) NOT NULL AUTO_INCREMENT,
   `context_id` bigint(20) NOT NULL,
-  `parent_id` bigint(20) NOT NULL,
+  `parent_id` bigint(20) DEFAULT NULL,
   `seq` bigint(20) DEFAULT NULL,
   `path` varchar(255) NOT NULL,
   `image` text DEFAULT NULL,
   PRIMARY KEY (`category_id`),
   UNIQUE KEY `category_path` (`context_id`,`path`),
-  KEY `category_context_id` (`context_id`,`parent_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `category_context_id` (`context_id`),
+  KEY `category_context_parent_id` (`context_id`,`parent_id`),
+  KEY `category_parent_id` (`parent_id`),
+  CONSTRAINT `categories_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `categories_parent_id_foreign` FOREIGN KEY (`parent_id`) REFERENCES `categories` (`category_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Categories permit the organization of submissions into a heirarchical structure.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -267,13 +260,16 @@ DROP TABLE IF EXISTS `category_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `category_settings` (
+  `category_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `category_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  UNIQUE KEY `category_settings_pkey` (`category_id`,`locale`,`setting_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`category_setting_id`),
+  UNIQUE KEY `category_settings_unique` (`category_id`,`locale`,`setting_name`),
+  KEY `category_settings_category_id` (`category_id`),
+  CONSTRAINT `category_settings_category_id_foreign` FOREIGN KEY (`category_id`) REFERENCES `categories` (`category_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about categories, including localized properties such as names.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -293,14 +289,17 @@ DROP TABLE IF EXISTS `citation_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `citation_settings` (
+  `citation_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `citation_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `citation_settings_pkey` (`citation_id`,`locale`,`setting_name`),
-  KEY `citation_settings_citation_id` (`citation_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`citation_setting_id`),
+  UNIQUE KEY `citation_settings_unique` (`citation_id`,`locale`,`setting_name`),
+  KEY `citation_settings_citation_id` (`citation_id`),
+  CONSTRAINT `citation_settings_citation_id` FOREIGN KEY (`citation_id`) REFERENCES `citations` (`citation_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Additional data about citations, including localized content.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -321,13 +320,14 @@ DROP TABLE IF EXISTS `citations`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `citations` (
   `citation_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `publication_id` bigint(20) NOT NULL DEFAULT 0,
+  `publication_id` bigint(20) NOT NULL,
   `raw_citation` text NOT NULL,
   `seq` bigint(20) NOT NULL DEFAULT 0,
   PRIMARY KEY (`citation_id`),
   UNIQUE KEY `citations_publication_seq` (`publication_id`,`seq`),
-  KEY `citations_publication` (`publication_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `citations_publication` (`publication_id`),
+  CONSTRAINT `citations_publication` FOREIGN KEY (`publication_id`) REFERENCES `publications` (`publication_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A citation made by an associated publication.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -356,8 +356,12 @@ CREATE TABLE `completed_payments` (
   `amount` double(8,2) NOT NULL,
   `currency_code_alpha` varchar(3) DEFAULT NULL,
   `payment_method_plugin_name` varchar(80) DEFAULT NULL,
-  PRIMARY KEY (`completed_payment_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`completed_payment_id`),
+  KEY `completed_payments_context_id` (`context_id`),
+  KEY `completed_payments_user_id` (`user_id`),
+  CONSTRAINT `completed_payments_context_id` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `completed_payments_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A list of completed (fulfilled) payments relating to a payment type such as a subscription payment.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -381,8 +385,10 @@ CREATE TABLE `controlled_vocab_entries` (
   `controlled_vocab_id` bigint(20) NOT NULL,
   `seq` double(8,2) DEFAULT NULL,
   PRIMARY KEY (`controlled_vocab_entry_id`),
-  KEY `controlled_vocab_entries_cv_id` (`controlled_vocab_id`,`seq`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `controlled_vocab_entries_controlled_vocab_id` (`controlled_vocab_id`),
+  KEY `controlled_vocab_entries_cv_id` (`controlled_vocab_id`,`seq`),
+  CONSTRAINT `controlled_vocab_entries_controlled_vocab_id_foreign` FOREIGN KEY (`controlled_vocab_id`) REFERENCES `controlled_vocabs` (`controlled_vocab_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='The order that a word or phrase used in a controlled vocabulary should appear. For example, the order of keywords in a publication.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -402,14 +408,17 @@ DROP TABLE IF EXISTS `controlled_vocab_entry_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `controlled_vocab_entry_settings` (
+  `controlled_vocab_entry_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `controlled_vocab_entry_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL,
+  PRIMARY KEY (`controlled_vocab_entry_setting_id`),
   UNIQUE KEY `c_v_e_s_pkey` (`controlled_vocab_entry_id`,`locale`,`setting_name`),
-  KEY `c_v_e_s_entry_id` (`controlled_vocab_entry_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `c_v_e_s_entry_id` (`controlled_vocab_entry_id`),
+  CONSTRAINT `c_v_e_s_entry_id` FOREIGN KEY (`controlled_vocab_entry_id`) REFERENCES `controlled_vocab_entries` (`controlled_vocab_entry_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about a controlled vocabulary entry, including localized properties such as the actual word or phrase.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -435,7 +444,7 @@ CREATE TABLE `controlled_vocabs` (
   `assoc_id` bigint(20) NOT NULL DEFAULT 0,
   PRIMARY KEY (`controlled_vocab_id`),
   UNIQUE KEY `controlled_vocab_symbolic` (`symbolic`,`assoc_type`,`assoc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Every word or phrase used in a controlled vocabulary. Controlled vocabularies are used for submission metadata like keywords and subjects, reviewer interests, and wherever a similar dictionary of words or phrases is required. Each entry corresponds to a word or phrase like "cellular reproduction" and a type like "submissionKeyword".';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -444,6 +453,7 @@ CREATE TABLE `controlled_vocabs` (
 
 LOCK TABLES `controlled_vocabs` WRITE;
 /*!40000 ALTER TABLE `controlled_vocabs` DISABLE KEYS */;
+INSERT INTO `controlled_vocabs` VALUES (1,'interest',0,0);
 /*!40000 ALTER TABLE `controlled_vocabs` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -455,11 +465,17 @@ DROP TABLE IF EXISTS `custom_issue_orders`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `custom_issue_orders` (
+  `custom_issue_order_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `issue_id` bigint(20) NOT NULL,
   `journal_id` bigint(20) NOT NULL,
   `seq` double(8,2) NOT NULL DEFAULT 0.00,
-  UNIQUE KEY `custom_issue_orders_pkey` (`issue_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`custom_issue_order_id`),
+  UNIQUE KEY `custom_issue_orders_unique` (`issue_id`),
+  KEY `custom_issue_orders_issue_id` (`issue_id`),
+  KEY `custom_issue_orders_journal_id` (`journal_id`),
+  CONSTRAINT `custom_issue_orders_issue_id` FOREIGN KEY (`issue_id`) REFERENCES `issues` (`issue_id`) ON DELETE CASCADE,
+  CONSTRAINT `custom_issue_orders_journal_id` FOREIGN KEY (`journal_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Ordering information for the issue list, when custom issue ordering is specified.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -479,11 +495,17 @@ DROP TABLE IF EXISTS `custom_section_orders`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `custom_section_orders` (
+  `custom_section_order_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `issue_id` bigint(20) NOT NULL,
   `section_id` bigint(20) NOT NULL,
   `seq` double(8,2) NOT NULL DEFAULT 0.00,
-  UNIQUE KEY `custom_section_orders_pkey` (`issue_id`,`section_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`custom_section_order_id`),
+  UNIQUE KEY `custom_section_orders_unique` (`issue_id`,`section_id`),
+  KEY `custom_section_orders_issue_id` (`issue_id`),
+  KEY `custom_section_orders_section_id` (`section_id`),
+  CONSTRAINT `custom_section_orders_issue_id` FOREIGN KEY (`issue_id`) REFERENCES `issues` (`issue_id`) ON DELETE CASCADE,
+  CONSTRAINT `custom_section_orders_section_id` FOREIGN KEY (`section_id`) REFERENCES `sections` (`section_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Ordering information for sections within issues, when issue-specific section ordering is specified.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -508,8 +530,9 @@ CREATE TABLE `data_object_tombstone_oai_set_objects` (
   `assoc_type` bigint(20) NOT NULL,
   `assoc_id` bigint(20) NOT NULL,
   PRIMARY KEY (`object_id`),
-  KEY `data_object_tombstone_oai_set_objects_tombstone_id` (`tombstone_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `data_object_tombstone_oai_set_objects_tombstone_id` (`tombstone_id`),
+  CONSTRAINT `data_object_tombstone_oai_set_objects_tombstone_id` FOREIGN KEY (`tombstone_id`) REFERENCES `data_object_tombstones` (`tombstone_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Relationships between tombstones and other data that can be collected in OAI sets, e.g. sections.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -529,14 +552,17 @@ DROP TABLE IF EXISTS `data_object_tombstone_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `data_object_tombstone_settings` (
+  `tombstone_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `tombstone_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  UNIQUE KEY `data_object_tombstone_settings_pkey` (`tombstone_id`,`locale`,`setting_name`),
-  KEY `data_object_tombstone_settings_tombstone_id` (`tombstone_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`tombstone_setting_id`),
+  UNIQUE KEY `data_object_tombstone_settings_unique` (`tombstone_id`,`locale`,`setting_name`),
+  KEY `data_object_tombstone_settings_tombstone_id` (`tombstone_id`),
+  CONSTRAINT `data_object_tombstone_settings_tombstone_id` FOREIGN KEY (`tombstone_id`) REFERENCES `data_object_tombstones` (`tombstone_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about data object tombstones, including localized content.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -564,7 +590,7 @@ CREATE TABLE `data_object_tombstones` (
   `oai_identifier` varchar(255) NOT NULL,
   PRIMARY KEY (`tombstone_id`),
   KEY `data_object_tombstones_data_object_id` (`data_object_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Entries for published data that has been removed. Usually used in the OAI endpoint.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -577,6 +603,62 @@ LOCK TABLES `data_object_tombstones` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `doi_settings`
+--
+
+DROP TABLE IF EXISTS `doi_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `doi_settings` (
+  `doi_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `doi_id` bigint(20) NOT NULL,
+  `locale` varchar(14) NOT NULL DEFAULT '',
+  `setting_name` varchar(255) NOT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`doi_setting_id`),
+  UNIQUE KEY `doi_settings_unique` (`doi_id`,`locale`,`setting_name`),
+  KEY `doi_settings_doi_id` (`doi_id`),
+  CONSTRAINT `doi_settings_doi_id_foreign` FOREIGN KEY (`doi_id`) REFERENCES `dois` (`doi_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about DOIs, including the registration agency.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `doi_settings`
+--
+
+LOCK TABLES `doi_settings` WRITE;
+/*!40000 ALTER TABLE `doi_settings` DISABLE KEYS */;
+/*!40000 ALTER TABLE `doi_settings` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `dois`
+--
+
+DROP TABLE IF EXISTS `dois`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `dois` (
+  `doi_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `context_id` bigint(20) NOT NULL,
+  `doi` varchar(255) NOT NULL,
+  `status` smallint(6) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`doi_id`),
+  KEY `dois_context_id` (`context_id`),
+  CONSTRAINT `dois_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Stores all DOIs used in the system.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `dois`
+--
+
+LOCK TABLES `dois` WRITE;
+/*!40000 ALTER TABLE `dois` DISABLE KEYS */;
+/*!40000 ALTER TABLE `dois` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `edit_decisions`
 --
 
@@ -586,16 +668,20 @@ DROP TABLE IF EXISTS `edit_decisions`;
 CREATE TABLE `edit_decisions` (
   `edit_decision_id` bigint(20) NOT NULL AUTO_INCREMENT,
   `submission_id` bigint(20) NOT NULL,
-  `review_round_id` bigint(20) NOT NULL,
+  `review_round_id` bigint(20) DEFAULT NULL,
   `stage_id` bigint(20) DEFAULT NULL,
-  `round` smallint(6) NOT NULL,
+  `round` smallint(6) DEFAULT NULL,
   `editor_id` bigint(20) NOT NULL,
-  `decision` smallint(6) NOT NULL,
+  `decision` smallint(6) NOT NULL COMMENT 'A numeric constant indicating the decision that was taken. Possible values are listed in the Decision class.',
   `date_decided` datetime NOT NULL,
   PRIMARY KEY (`edit_decision_id`),
   KEY `edit_decisions_submission_id` (`submission_id`),
-  KEY `edit_decisions_editor_id` (`editor_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `edit_decisions_editor_id` (`editor_id`),
+  KEY `edit_decisions_review_round_id` (`review_round_id`),
+  CONSTRAINT `edit_decisions_editor_id` FOREIGN KEY (`editor_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
+  CONSTRAINT `edit_decisions_review_round_id_foreign` FOREIGN KEY (`review_round_id`) REFERENCES `review_rounds` (`review_round_id`) ON DELETE CASCADE,
+  CONSTRAINT `edit_decisions_submission_id` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Editorial decisions recorded on a submission, such as decisions to accept or decline the submission, as well as decisions to send for review, send to copyediting, request revisions, and more.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -629,7 +715,7 @@ CREATE TABLE `email_log` (
   `body` text DEFAULT NULL,
   PRIMARY KEY (`log_id`),
   KEY `email_log_assoc` (`assoc_type`,`assoc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A record of email messages that are sent in relation to an associated entity, such as a submission.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -649,10 +735,16 @@ DROP TABLE IF EXISTS `email_log_users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `email_log_users` (
+  `email_log_user_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `email_log_id` bigint(20) NOT NULL,
   `user_id` bigint(20) NOT NULL,
-  UNIQUE KEY `email_log_user_id` (`email_log_id`,`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`email_log_user_id`),
+  UNIQUE KEY `email_log_user_id` (`email_log_id`,`user_id`),
+  KEY `email_log_users_email_log_id` (`email_log_id`),
+  KEY `email_log_users_user_id` (`user_id`),
+  CONSTRAINT `email_log_users_email_log_id_foreign` FOREIGN KEY (`email_log_id`) REFERENCES `email_log` (`log_id`) ON DELETE CASCADE,
+  CONSTRAINT `email_log_users_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A record of users associated with an email log entry.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -673,12 +765,15 @@ DROP TABLE IF EXISTS `email_templates`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `email_templates` (
   `email_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `email_key` varchar(64) NOT NULL COMMENT 'Unique identifier for this email.',
+  `email_key` varchar(255) NOT NULL COMMENT 'Unique identifier for this email.',
   `context_id` bigint(20) NOT NULL,
-  `enabled` smallint(6) NOT NULL DEFAULT 1,
+  `alternate_to` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`email_id`),
-  UNIQUE KEY `email_templates_email_key` (`email_key`,`context_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  UNIQUE KEY `email_templates_email_key` (`email_key`,`context_id`),
+  KEY `email_templates_context_id` (`context_id`),
+  KEY `email_templates_alternate_to` (`alternate_to`),
+  CONSTRAINT `email_templates_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Custom email templates created by each context, and overrides of the default templates.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -691,36 +786,6 @@ LOCK TABLES `email_templates` WRITE;
 UNLOCK TABLES;
 
 --
--- Table structure for table `email_templates_default`
---
-
-DROP TABLE IF EXISTS `email_templates_default`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `email_templates_default` (
-  `email_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `email_key` varchar(64) NOT NULL COMMENT 'Unique identifier for this email.',
-  `can_disable` smallint(6) NOT NULL DEFAULT 0,
-  `can_edit` smallint(6) NOT NULL DEFAULT 0,
-  `from_role_id` bigint(20) DEFAULT NULL,
-  `to_role_id` bigint(20) DEFAULT NULL,
-  `stage_id` bigint(20) DEFAULT NULL,
-  PRIMARY KEY (`email_id`),
-  KEY `email_templates_default_email_key` (`email_key`)
-) ENGINE=InnoDB AUTO_INCREMENT=59 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `email_templates_default`
---
-
-LOCK TABLES `email_templates_default` WRITE;
-/*!40000 ALTER TABLE `email_templates_default` DISABLE KEYS */;
-INSERT INTO `email_templates_default` VALUES (1,'NOTIFICATION',0,1,NULL,NULL,NULL),(2,'NOTIFICATION_CENTER_DEFAULT',0,1,NULL,NULL,NULL),(3,'PASSWORD_RESET_CONFIRM',0,1,NULL,NULL,NULL),(4,'USER_REGISTER',0,1,NULL,NULL,NULL),(5,'USER_VALIDATE',0,1,NULL,NULL,NULL),(6,'REVIEWER_REGISTER',0,1,NULL,NULL,NULL),(7,'PUBLISH_NOTIFY',0,1,NULL,NULL,NULL),(8,'LOCKSS_EXISTING_ARCHIVE',0,1,NULL,NULL,NULL),(9,'LOCKSS_NEW_ARCHIVE',0,1,NULL,NULL,NULL),(10,'SUBMISSION_ACK',1,1,NULL,65536,1),(11,'SUBMISSION_ACK_NOT_USER',1,1,NULL,65536,1),(12,'EDITOR_ASSIGN',1,1,16,16,1),(13,'REVIEW_CANCEL',1,1,16,4096,3),(14,'REVIEW_REINSTATE',1,1,16,4096,3),(15,'REVIEW_REQUEST',1,1,16,4096,3),(16,'REVIEW_REQUEST_SUBSEQUENT',1,1,16,4096,3),(17,'REVIEW_REQUEST_ONECLICK',1,1,16,4096,3),(18,'REVIEW_REQUEST_ONECLICK_SUBSEQUENT',1,1,16,4096,3),(19,'REVIEW_REQUEST_ATTACHED',0,1,16,4096,3),(20,'REVIEW_REQUEST_ATTACHED_SUBSEQUENT',0,1,16,4096,3),(21,'REVIEW_REQUEST_REMIND_AUTO',0,1,NULL,4096,3),(22,'REVIEW_REQUEST_REMIND_AUTO_ONECLICK',0,1,NULL,4096,3),(23,'REVIEW_CONFIRM',1,1,4096,16,3),(24,'REVIEW_DECLINE',1,1,4096,16,3),(25,'REVIEW_ACK',1,1,16,4096,3),(26,'REVIEW_REMIND',0,1,16,4096,3),(27,'REVIEW_REMIND_AUTO',0,1,NULL,4096,3),(28,'REVIEW_REMIND_ONECLICK',0,1,16,4096,3),(29,'REVIEW_REMIND_AUTO_ONECLICK',0,1,NULL,4096,3),(30,'EDITOR_DECISION_ACCEPT',0,1,16,65536,3),(31,'EDITOR_DECISION_SEND_TO_EXTERNAL',0,1,16,65536,3),(32,'EDITOR_DECISION_SEND_TO_PRODUCTION',0,1,16,65536,5),(33,'EDITOR_DECISION_REVISIONS',0,1,16,65536,3),(34,'EDITOR_DECISION_RESUBMIT',0,1,16,65536,3),(35,'EDITOR_DECISION_DECLINE',0,1,16,65536,3),(36,'EDITOR_DECISION_INITIAL_DECLINE',0,1,16,65536,1),(37,'EDITOR_RECOMMENDATION',0,1,16,16,3),(38,'COPYEDIT_REQUEST',1,1,16,4097,4),(39,'LAYOUT_REQUEST',1,1,16,4097,5),(40,'LAYOUT_COMPLETE',1,1,4097,16,5),(41,'EMAIL_LINK',0,1,1048576,NULL,NULL),(42,'SUBSCRIPTION_NOTIFY',0,1,NULL,1048576,NULL),(43,'OPEN_ACCESS_NOTIFY',0,1,NULL,1048576,NULL),(44,'SUBSCRIPTION_BEFORE_EXPIRY',0,1,NULL,1048576,NULL),(45,'SUBSCRIPTION_AFTER_EXPIRY',0,1,NULL,1048576,NULL),(46,'SUBSCRIPTION_AFTER_EXPIRY_LAST',0,1,NULL,1048576,NULL),(47,'SUBSCRIPTION_PURCHASE_INDL',0,1,NULL,2097152,NULL),(48,'SUBSCRIPTION_PURCHASE_INSTL',0,1,NULL,2097152,NULL),(49,'SUBSCRIPTION_RENEW_INDL',0,1,NULL,2097152,NULL),(50,'SUBSCRIPTION_RENEW_INSTL',0,1,NULL,2097152,NULL),(51,'CITATION_EDITOR_AUTHOR_QUERY',0,1,NULL,NULL,4),(52,'REVISED_VERSION_NOTIFY',0,1,NULL,16,3),(53,'STATISTICS_REPORT_NOTIFICATION',1,1,16,17,NULL),(54,'ANNOUNCEMENT',0,1,16,1048576,NULL),(55,'ORCID_COLLECT_AUTHOR_ID',0,1,NULL,NULL,NULL),(56,'ORCID_REQUEST_AUTHOR_AUTHORIZATION',0,1,NULL,NULL,NULL),(57,'PAYPAL_INVESTIGATE_PAYMENT',0,1,NULL,NULL,NULL),(58,'MANUAL_PAYMENT_NOTIFICATION',0,1,NULL,NULL,NULL);
-/*!40000 ALTER TABLE `email_templates_default` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `email_templates_default_data`
 --
 
@@ -728,13 +793,15 @@ DROP TABLE IF EXISTS `email_templates_default_data`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `email_templates_default_data` (
-  `email_key` varchar(64) NOT NULL COMMENT 'Unique identifier for this email.',
-  `locale` varchar(14) NOT NULL DEFAULT 'en_US',
-  `subject` varchar(120) NOT NULL,
+  `email_templates_default_data_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `email_key` varchar(255) NOT NULL COMMENT 'Unique identifier for this email.',
+  `locale` varchar(14) NOT NULL DEFAULT 'en',
+  `name` varchar(255) NOT NULL,
+  `subject` varchar(255) NOT NULL,
   `body` text DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  UNIQUE KEY `email_templates_default_data_pkey` (`email_key`,`locale`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`email_templates_default_data_id`),
+  UNIQUE KEY `email_templates_default_data_unique` (`email_key`,`locale`)
+) ENGINE=InnoDB AUTO_INCREMENT=70 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Default email templates created for every installed locale.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -743,7 +810,7 @@ CREATE TABLE `email_templates_default_data` (
 
 LOCK TABLES `email_templates_default_data` WRITE;
 /*!40000 ALTER TABLE `email_templates_default_data` DISABLE KEYS */;
-INSERT INTO `email_templates_default_data` VALUES ('ANNOUNCEMENT','en_US','{$title}','<b>{$title}</b><br />\n<br />\n{$summary}<br />\n<br />\nVisit our website to read the <a href=\"{$url}\">full announcement</a>.','This email is sent when a new announcement is created.'),('CITATION_EDITOR_AUTHOR_QUERY','en_US','Citation Editing','{$authorFirstName},<br />\n<br />\nCould you please verify or provide us with the proper citation for the following reference from your article, {$submissionTitle}:<br />\n<br />\n{$rawCitation}<br />\n<br />\nThanks!<br />\n<br />\n{$userFirstName}<br />\nCopy-Editor, {$contextName}<br />\n','This email allows copyeditors to request additional information about references from authors.'),('COPYEDIT_REQUEST','en_US','Copyediting Request','{$participantName}:<br />\n<br />\nI would ask that you undertake the copyediting of &quot;{$submissionTitle}&quot; for {$contextName} by following these steps.<br />\n1. Click on the Submission URL below.<br />\n2. Open any files available under Draft Files and do your copyediting, while adding any Copyediting Discussions as needed.<br />\n3. Save copyedited file(s), and upload to Copyedited panel.<br />\n4. Notify the Editor that all files have been prepared, and that the Production process may begin.<br />\n<br />\n{$contextName} URL: {$contextUrl}<br />\nSubmission URL: {$submissionUrl}<br />\nUsername: {$participantUsername}','This email is sent by a Section Editor to a submission\'s Copyeditor to request that they begin the copyediting process. It provides information about the submission and how to access it.'),('EDITOR_ASSIGN','en_US','Editorial Assignment','{$editorialContactName}:<br />\n<br />\nThe submission, &quot;{$submissionTitle},&quot; to {$contextName} has been assigned to you to see through the editorial process in your role as Section Editor.<br />\n<br />\nSubmission URL: {$submissionUrl}<br />\nUsername: {$editorUsername}<br />\n<br />\nThank you.','This email notifies a Section Editor that the Editor has assigned them the task of overseeing a submission through the editing process. It provides information about the submission and how to access the journal site.'),('EDITOR_DECISION_ACCEPT','en_US','Editor Decision','{$authorName}:<br />\n<br />\nWe have reached a decision regarding your submission to {$contextName}, &quot;{$submissionTitle}&quot;.<br />\n<br />\nOur decision is to: Accept Submission','This email from the Editor or Section Editor to an Author notifies them of a final \"accept submission\" decision regarding their submission.'),('EDITOR_DECISION_DECLINE','en_US','Editor Decision','{$authorName}:<br />\n<br />\nWe have reached a decision regarding your submission to {$contextName}, &quot;{$submissionTitle}&quot;.<br />\n<br />\nOur decision is to: Decline Submission','This email from the Editor or Section Editor to an Author notifies them of a final \"decline\" decision regarding their submission.'),('EDITOR_DECISION_INITIAL_DECLINE','en_US','Editor Decision','\n			{$authorName}:<br />\n<br />\nWe have reached a decision regarding your submission to {$contextName}, &quot;{$submissionTitle}&quot;.<br />\n<br />\nOur decision is to: Decline Submission','This email is sent to the author if the editor declines their submission initially, before the review stage'),('EDITOR_DECISION_RESUBMIT','en_US','Editor Decision','{$authorName}:<br />\n<br />\nWe have reached a decision regarding your submission to {$contextName}, &quot;{$submissionTitle}&quot;.<br />\n<br />\nOur decision is to: Resubmit for Review','This email from the Editor or Section Editor to an Author notifies them of a final \"resubmit\" decision regarding their submission.'),('EDITOR_DECISION_REVISIONS','en_US','Editor Decision','{$authorName}:<br />\n<br />\nWe have reached a decision regarding your submission to {$contextName}, &quot;{$submissionTitle}&quot;.<br />\n<br />\nOur decision is: Revisions Required','This email from the Editor or Section Editor to an Author notifies them of a final \"revisions required\" decision regarding their submission.'),('EDITOR_DECISION_SEND_TO_EXTERNAL','en_US','Editor Decision','{$authorName}:<br />\n<br />\nWe have reached a decision regarding your submission to {$contextName}, &quot;{$submissionTitle}&quot;.<br />\n<br />\nOur decision is to: Send to Review<br />\n<br />\nSubmission URL: {$submissionUrl}','This email from the Editor or Section Editor to an Author notifies them that their submission is being sent to an external review.'),('EDITOR_DECISION_SEND_TO_PRODUCTION','en_US','Editor Decision','{$authorName}:<br />\n<br />\nThe editing of your submission, &quot;{$submissionTitle},&quot; is complete.  We are now sending it to production.<br />\n<br />\nSubmission URL: {$submissionUrl}','This email from the Editor or Section Editor to an Author notifies them that their submission is being sent to production.'),('EDITOR_RECOMMENDATION','en_US','Editor Recommendation','{$editors}:<br />\n<br />\nThe recommendation regarding the submission to {$contextName}, &quot;{$submissionTitle}&quot; is: {$recommendation}','This email from the recommending Editor or Section Editor to the decision making Editors or Section Editors notifies them of a final recommendation regarding the submission.'),('EMAIL_LINK','en_US','Article of Possible Interest','Thought you might be interested in seeing &quot;{$submissionTitle}&quot; by {$authorName} published in Vol {$volume}, No {$number} ({$year}) of {$contextName} at &quot;{$articleUrl}&quot;.','This email template provides a registered reader with the opportunity to send information about an article to somebody who may be interested. It is available via the Reading Tools and must be enabled by the Journal Manager in the Reading Tools Administration page.'),('LAYOUT_COMPLETE','en_US','Galleys Complete','{$editorialContactName}:<br />\n<br />\nGalleys have now been prepared for the manuscript, &quot;{$submissionTitle},&quot; for {$contextName} and are ready for proofreading.<br />\n<br />\nIf you have any questions, please contact me.<br />\n<br />\n{$participantName}','This email from the Layout Editor to the Section Editor notifies them that the layout process has been completed.'),('LAYOUT_REQUEST','en_US','Request Galleys','{$participantName}:<br />\n<br />\nThe submission &quot;{$submissionTitle}&quot; to {$contextName} now needs galleys laid out by following these steps.<br />\n1. Click on the Submission URL below.<br />\n2. Log into the journal and use the Production Ready files to create the galleys according to the journal\'s standards.<br />\n3. Upload the galleys to the Galley Files section.<br />\n4. Notify the Editor using Production Discussions that the galleys are uploaded and ready.<br />\n<br />\n{$contextName} URL: {$contextUrl}<br />\nSubmission URL: {$submissionUrl}<br />\nUsername: {$participantUsername}<br />\n<br />\nIf you are unable to undertake this work at this time or have any questions, please contact me. Thank you for your contribution to this journal.','This email from the Section Editor to the Layout Editor notifies them that they have been assigned the task of performing layout editing on a submission. It provides information about the submission and how to access it.'),('LOCKSS_EXISTING_ARCHIVE','en_US','Archiving Request for {$contextName}','Dear [University Librarian]<br />\n<br />\n{$contextName} &amp;lt;{$contextUrl}&amp;gt;, is a journal for which a member of your faculty, [name of member], serves as a [title of position]. The journal is seeking to establish a LOCKSS (Lots of Copies Keep Stuff Safe) compliant archive with this and other university libraries.<br />\n<br />\n[Brief description of journal]<br />\n<br />\nThe URL to the LOCKSS Publisher Manifest for our journal is: {$contextUrl}/gateway/lockss<br />\n<br />\nWe understand that you are already participating in LOCKSS. If we can provide any additional metadata for purposes of registering our journal with your version of LOCKSS, we would be happy to provide it.<br />\n<br />\nThank you,<br />\n{$principalContactSignature}','This email requests the keeper of a LOCKSS archive to consider including this journal in their archive. It provides the URL to the journal\'s LOCKSS Publisher Manifest.'),('LOCKSS_NEW_ARCHIVE','en_US','Archiving Request for {$contextName}','Dear [University Librarian]<br />\n<br />\n{$contextName} &amp;lt;{$contextUrl}&amp;gt;, is a journal for which a member of your faculty, [name of member] serves as a [title of position]. The journal is seeking to establish a LOCKSS (Lots of Copies Keep Stuff Safe) compliant archive with this and other university libraries.<br />\n<br />\n[Brief description of journal]<br />\n<br />\nThe LOCKSS Program &amp;lt;http://lockss.org/&amp;gt;, an international library/publisher initiative, is a working example of a distributed preservation and archiving repository, additional details are below. The software, which runs on an ordinary personal computer is free; the system is easily brought on-line; very little ongoing maintenance is required.<br />\n<br />\nTo assist in the archiving of our journal, we invite you to become a member of the LOCKSS community, to help collect and preserve titles produced by your faculty and by other scholars worldwide. To do so, please have someone on your staff visit the LOCKSS site for information on how this system operates. I look forward to hearing from you on the feasibility of providing this archiving support for this journal.<br />\n<br />\nThank you,<br />\n{$principalContactSignature}','This email encourages the recipient to participate in the LOCKSS initiative and include this journal in the archive. It provides information about the LOCKSS initiative and ways to become involved.'),('MANUAL_PAYMENT_NOTIFICATION','en_US','Manual Payment Notification','A manual payment needs to be processed for the journal {$contextName} and the user {$userFullName} (username &quot;{$userName}&quot;).<br />\n<br />\nThe item being paid for is &quot;{$itemName}&quot;.<br />\nThe cost is {$itemCost} ({$itemCurrencyCode}).<br />\n<br />\nThis email was generated by Open Journal Systems\' Manual Payment plugin.','This email template is used to notify a journal manager contact that a manual payment was requested.'),('NOTIFICATION','en_US','New notification from {$siteTitle}','You have a new notification from {$siteTitle}:<br />\n<br />\n{$notificationContents}<br />\n<br />\nLink: {$url}<br />\n<br />\n{$principalContactSignature}','The email is sent to registered users that have selected to have this type of notification emailed to them.'),('NOTIFICATION_CENTER_DEFAULT','en_US','A message regarding {$contextName}','Please enter your message.','The default (blank) message used in the Notification Center Message Listbuilder.'),('OPEN_ACCESS_NOTIFY','en_US','Issue Now Open Access','Readers:<br />\n<br />\n{$contextName} has just made available in an open access format the following issue. We invite you to review the Table of Contents here and then visit our web site ({$contextUrl}) to review articles and items of interest.<br />\n<br />\nThanks for the continuing interest in our work,<br />\n{$editorialContactSignature}','This email is sent to registered readers who have requested to receive a notification email when an issue becomes open access.'),('ORCID_COLLECT_AUTHOR_ID','en_US','Submission ORCID','Dear {$authorName},<br/>\n<br/>\nYou have been listed as an author on a manuscript submission to {$contextName}.<br/>\nTo confirm your authorship, please add your ORCID id to this submission by visiting the link provided below.<br/>\n<br/>\n<a href=\"{$authorOrcidUrl}\"><img id=\"orcid-id-logo\" src=\"https://orcid.org/sites/default/files/images/orcid_16x16.png\" width=\'16\' height=\'16\' alt=\"ORCID iD icon\" style=\"display: block; margin: 0 .5em 0 0; padding: 0; float: left;\"/>Register or connect your ORCID iD</a><br/>\n<br/>\n<br>\n<a href=\"{$orcidAboutUrl}\">More information about ORCID at {$contextName}</a><br/>\n<br/>\nIf you have any questions, please contact me.<br/>\n<br/>\n{$principalContactSignature}<br/>\n','This email template is used to collect the ORCID id\'s from authors.'),('ORCID_REQUEST_AUTHOR_AUTHORIZATION','en_US','Requesting ORCID record access','Dear {$authorName},<br>\n<br>\nYou have been listed as an author on the manuscript submission \"{$submissionTitle}\" to {$contextName}.\n<br>\n<br>\nPlease allow us to add your ORCID id to this submission and also to add the submission to your ORCID profile on publication.<br>\nVisit the link to the official ORCID website, login with your profile and authorize the access by following the instructions.<br>\n<a href=\"{$authorOrcidUrl}\"><img id=\"orcid-id-logo\" src=\"https://orcid.org/sites/default/files/images/orcid_16x16.png\" width=\'16\' height=\'16\' alt=\"ORCID iD icon\" style=\"display: block; margin: 0 .5em 0 0; padding: 0; float: left;\"/>Register or Connect your ORCID iD</a><br/>\n<br>\n<br>\n<a href=\"{$orcidAboutUrl}\">More about ORCID at {$contextName}</a><br/>\n<br>\nIf you have any questions, please contact me.<br>\n<br>\n{$principalContactSignature}<br>\n','This email template is used to request ORCID record access from authors.'),('PASSWORD_RESET_CONFIRM','en_US','Password Reset Confirmation','We have received a request to reset your password for the {$siteTitle} web site.<br />\n<br />\nIf you did not make this request, please ignore this email and your password will not be changed. If you wish to reset your password, click on the below URL.<br />\n<br />\nReset my password: {$url}<br />\n<br />\n{$principalContactSignature}','This email is sent to a registered user when they indicate that they have forgotten their password or are unable to login. It provides a URL they can follow to reset their password.'),('PAYPAL_INVESTIGATE_PAYMENT','en_US','Unusual PayPal Activity','Open Journal Systems has encountered unusual activity relating to PayPal payment support for the journal {$contextName}. This activity may need further investigation or manual intervention.<br />\n                       <br />\nThis email was generated by Open Journal Systems\' PayPal plugin.<br />\n<br />\nFull post information for the request:<br />\n{$postInfo}<br />\n<br />\nAdditional information (if supplied):<br />\n{$additionalInfo}<br />\n<br />\nServer vars:<br />\n{$serverVars}<br />\n','This email template is used to notify a journal\'s primary contact that suspicious activity or activity requiring manual intervention was encountered by the PayPal plugin.'),('PUBLISH_NOTIFY','en_US','New Issue Published','Readers:<br />\n<br />\n{$contextName} has just published its latest issue at {$contextUrl}. We invite you to review the Table of Contents here and then visit our web site to review articles and items of interest.<br />\n<br />\nThanks for the continuing interest in our work,<br />\n{$editorialContactSignature}','This email is sent to registered readers via the \"Notify Users\" link in the Editor\'s User Home. It notifies readers of a new issue and invites them to visit the journal at a supplied URL.'),('REVIEWER_REGISTER','en_US','Registration as Reviewer with {$contextName}','In light of your expertise, we have taken the liberty of registering your name in the reviewer database for {$contextName}. This does not entail any form of commitment on your part, but simply enables us to approach you with a submission to possibly review. On being invited to review, you will have an opportunity to see the title and abstract of the paper in question, and you\'ll always be in a position to accept or decline the invitation. You can also ask at any point to have your name removed from this reviewer list.<br />\n<br />\nWe are providing you with a username and password, which is used in all interactions with the journal through its website. You may wish, for example, to update your profile, including your reviewing interests.<br />\n<br />\nUsername: {$username}<br />\nPassword: {$password}<br />\n<br />\nThank you,<br />\n{$principalContactSignature}','This email is sent to a newly registered reviewer to welcome them to the system and provide them with a record of their username and password.'),('REVIEW_ACK','en_US','Article Review Acknowledgement','{$reviewerName}:<br />\n<br />\nThank you for completing the review of the submission, &quot;{$submissionTitle},&quot; for {$contextName}. We appreciate your contribution to the quality of the work that we publish.','This email is sent by a Section Editor to confirm receipt of a completed review and thank the reviewer for their contributions.'),('REVIEW_CANCEL','en_US','Request for Review Cancelled','{$reviewerName}:<br />\n<br />\nWe have decided at this point to cancel our request for you to review the submission, &quot;{$submissionTitle},&quot; for {$contextName}. We apologize for any inconvenience this may cause you and hope that we will be able to call on you to assist with this journal\'s review process in the future.<br />\n<br />\nIf you have any questions, please contact me.','This email is sent by the Section Editor to a Reviewer who has a submission review in progress to notify them that the review has been cancelled.'),('REVIEW_CONFIRM','en_US','Able to Review','Editors:<br />\n<br />\nI am able and willing to review the submission, &quot;{$submissionTitle},&quot; for {$contextName}. Thank you for thinking of me, and I plan to have the review completed by its due date, {$reviewDueDate}, if not before.<br />\n<br />\n{$reviewerName}','This email is sent by a Reviewer to the Section Editor in response to a review request to notify the Section Editor that the review request has been accepted and will be completed by the specified date.'),('REVIEW_DECLINE','en_US','Unable to Review','Editors:<br />\n<br />\nI am afraid that at this time I am unable to review the submission, &quot;{$submissionTitle},&quot; for {$contextName}. Thank you for thinking of me, and another time feel free to call on me.<br />\n<br />\n{$reviewerName}','This email is sent by a Reviewer to the Section Editor in response to a review request to notify the Section Editor that the review request has been declined.'),('REVIEW_REINSTATE','en_US','Request for Review Reinstated','{$reviewerName}:<br />\n<br />\nWe would like to reinstate our request for you to review the submission, &quot;{$submissionTitle},&quot; for {$contextName}. We hope that you will be able to assist with this journal\'s review process.<br />\n<br />\nIf you have any questions, please contact me.','This email is sent by the Section Editor to a Reviewer who has a submission review in progress to notify them that a cancelled review has been reinstated.'),('REVIEW_REMIND','en_US','Submission Review Reminder','{$reviewerName}:<br />\n<br />\nJust a gentle reminder of our request for your review of the submission, &quot;{$submissionTitle},&quot; for {$contextName}. We were hoping to have this review by {$reviewDueDate}, and would be pleased to receive it as soon as you are able to prepare it.<br />\n<br />\nIf you do not have your username and password for the journal\'s web site, you can use this link to reset your password (which will then be emailed to you along with your username). {$passwordResetUrl}<br />\n<br />\nSubmission URL: {$submissionReviewUrl}<br />\n<br />\nPlease confirm your ability to complete this vital contribution to the work of the journal. I look forward to hearing from you.<br />\n<br />\n{$editorialContactSignature}','This email is sent by a Section Editor to remind a reviewer that their review is due.'),('REVIEW_REMIND_AUTO','en_US','Automated Submission Review Reminder','{$reviewerName}:<br />\n<br />\nJust a gentle reminder of our request for your review of the submission, &quot;{$submissionTitle},&quot; for {$contextName}. We were hoping to have this review by {$reviewDueDate}, and this email has been automatically generated and sent with the passing of that date. We would still be pleased to receive it as soon as you are able to prepare it.<br />\n<br />\nIf you do not have your username and password for the journal\'s web site, you can use this link to reset your password (which will then be emailed to you along with your username). {$passwordResetUrl}<br />\n<br />\nSubmission URL: {$submissionReviewUrl}<br />\n<br />\nPlease confirm your ability to complete this vital contribution to the work of the journal. I look forward to hearing from you.<br />\n<br />\n{$editorialContactSignature}','This email is automatically sent when a reviewer\'s due date elapses (see Review Options under Settings > Workflow > Review) and one-click reviewer access is disabled. Scheduled tasks must be enabled and configured (see the site configuration file).'),('REVIEW_REMIND_AUTO_ONECLICK','en_US','Automated Submission Review Reminder','{$reviewerName}:<br />\n<br />\nJust a gentle reminder of our request for your review of the submission, &quot;{$submissionTitle},&quot; for {$contextName}. We were hoping to have this review by {$reviewDueDate}, and this email has been automatically generated and sent with the passing of that date. We would still be pleased to receive it as soon as you are able to prepare it.<br />\n<br />\nSubmission URL: {$submissionReviewUrl}<br />\n<br />\nPlease confirm your ability to complete this vital contribution to the work of the journal. I look forward to hearing from you.<br />\n<br />\n{$editorialContactSignature}','This email is automatically sent when a reviewer\'s due date elapses (see Review Options under Settings > Workflow > Review) and one-click reviewer access is enabled. Scheduled tasks must be enabled and configured (see the site configuration file).'),('REVIEW_REMIND_ONECLICK','en_US','Submission Review Reminder','{$reviewerName}:<br />\n<br />\nJust a gentle reminder of our request for your review of the submission, &quot;{$submissionTitle},&quot; for {$contextName}. We were hoping to have this review by {$reviewDueDate}, and would be pleased to receive it as soon as you are able to prepare it.<br />\n<br />\nSubmission URL: {$submissionReviewUrl}<br />\n<br />\nPlease confirm your ability to complete this vital contribution to the work of the journal. I look forward to hearing from you.<br />\n<br />\n{$editorialContactSignature}','This email is sent by a Section Editor to remind a reviewer that their review is due.'),('REVIEW_REQUEST','en_US','Article Review Request','{$reviewerName}:<br />\n<br />\nI believe that you would serve as an excellent reviewer of the manuscript, &quot;{$submissionTitle},&quot; which has been submitted to {$contextName}. The submission\'s abstract is inserted below, and I hope that you will consider undertaking this important task for us.<br />\n<br />\nPlease log into the journal web site by {$responseDueDate} to indicate whether you will undertake the review or not, as well as to access the submission and to record your review and recommendation. The web site is {$contextUrl}<br />\n<br />\nThe review itself is due {$reviewDueDate}.<br />\n<br />\nIf you do not have your username and password for the journal\'s web site, you can use this link to reset your password (which will then be emailed to you along with your username). {$passwordResetUrl}<br />\n<br />\nSubmission URL: {$submissionReviewUrl}<br />\n<br />\nThank you for considering this request.<br />\n<br />\n{$editorialContactSignature}<br />\n<br />\n&quot;{$submissionTitle}&quot;<br />\n<br />\n{$submissionAbstract}','This email from the Section Editor to a Reviewer requests that the reviewer accept or decline the task of reviewing a submission. It provides information about the submission such as the title and abstract, a review due date, and how to access the submission itself. This message is used when the Standard Review Process is selected in Management > Settings > Workflow > Review. (Otherwise see REVIEW_REQUEST_ATTACHED.)'),('REVIEW_REQUEST_ATTACHED','en_US','Article Review Request','{$reviewerName}:<br />\n<br />\nI believe that you would serve as an excellent reviewer of the manuscript, &quot;{$submissionTitle},&quot; and I am asking that you consider undertaking this important task for us. The Review Guidelines for this journal are appended below, and the submission is attached to this email. Your review of the submission, along with your recommendation, should be emailed to me by {$reviewDueDate}.<br />\n<br />\nPlease indicate in a return email by {$responseDueDate} whether you are able and willing to do the review.<br />\n<br />\nThank you for considering this request.<br />\n<br />\n{$editorialContactSignature}<br />\n<br />\n<br />\nReview Guidelines<br />\n<br />\n{$reviewGuidelines}<br />\n','This email is sent by the Section Editor to a Reviewer to request that they accept or decline the task of reviewing a submission. It includes the submission as an attachment. This message is used when the Email-Attachment Review Process is selected in Management > Settings > Workflow > Review. (Otherwise see REVIEW_REQUEST.)'),('REVIEW_REQUEST_ATTACHED_SUBSEQUENT','en_US','Article Review Request','{$reviewerName}:<br />\n<br />\nThis regards the manuscript &quot;{$submissionTitle},&quot; which is under consideration by {$contextName}.<br />\n<br />\nFollowing the review of the previous version of the manuscript, the authors have now submitted a revised version of their paper. We would appreciate it if you could help evaluate it.<br />\n<br />\nThe Review Guidelines for this journal are appended below, and the submission is attached to this email. Your review of the submission, along with your recommendation, should be emailed to me by {$reviewDueDate}.<br />\n<br />\nPlease indicate in a return email by {$responseDueDate} whether you are able and willing to do the review.<br />\n<br />\nThank you for considering this request.<br />\n<br />\n{$editorialContactSignature}<br />\n<br />\n<br />\nReview Guidelines<br />\n<br />\n{$reviewGuidelines}<br />\n','This email is sent by the Section Editor to a Reviewer to request that they accept or decline the task of reviewing a submission for a second or greater round of review. It includes the submission as an attachment. This message is used when the Email-Attachment Review Process is selected in Management > Settings > Workflow > Review. (Otherwise see REVIEW_REQUEST_SUBSEQUENT.)'),('REVIEW_REQUEST_ONECLICK','en_US','Article Review Request','{$reviewerName}:<br />\n<br />\nI believe that you would serve as an excellent reviewer of the manuscript, &quot;{$submissionTitle},&quot; which has been submitted to {$contextName}. The submission\'s abstract is inserted below, and I hope that you will consider undertaking this important task for us.<br />\n<br />\nPlease log into the journal web site by {$responseDueDate} to indicate whether you will undertake the review or not, as well as to access the submission and to record your review and recommendation.<br />\n<br />\nThe review itself is due {$reviewDueDate}.<br />\n<br />\nSubmission URL: {$submissionReviewUrl}<br />\n<br />\nThank you for considering this request.<br />\n<br />\n{$editorialContactSignature}<br />\n<br />\n&quot;{$submissionTitle}&quot;<br />\n<br />\n{$submissionAbstract}','This email from the Section Editor to a Reviewer requests that the reviewer accept or decline the task of reviewing a submission. It provides information about the submission such as the title and abstract, a review due date, and how to access the submission itself. This message is used when the Standard Review Process is selected in Management > Settings > Workflow > Review, and one-click reviewer access is enabled.'),('REVIEW_REQUEST_ONECLICK_SUBSEQUENT','en_US','Article Review Request','{$reviewerName}:<br />\n<br />\nThis regards the manuscript &quot;{$submissionTitle},&quot; which is under consideration by {$contextName}.<br />\n<br />\nFollowing the review of the previous version of the manuscript, the authors have now submitted a revised version of their paper. We would appreciate it if you could help evaluate it.<br />\n<br />\nPlease log into the journal web site by {$responseDueDate} to indicate whether you will undertake the review or not, as well as to access the submission and to record your review and recommendation.<br />\n<br />\nThe review itself is due {$reviewDueDate}.<br />\n<br />\nSubmission URL: {$submissionReviewUrl}<br />\n<br />\nThank you for considering this request.<br />\n<br />\n{$editorialContactSignature}<br />\n<br />\n&quot;{$submissionTitle}&quot;<br />\n<br />\n{$submissionAbstract}','This email from the Section Editor to a Reviewer requests that the reviewer accept or decline the task of reviewing a submission for a second or greater round of review. It provides information about the submission such as the title and abstract, a review due date, and how to access the submission itself. This message is used when the Standard Review Process is selected in Management > Settings > Workflow > Review, and one-click reviewer access is enabled.'),('REVIEW_REQUEST_REMIND_AUTO','en_US','Article Review Request Reminder','{$reviewerName}:<br />\nJust a gentle reminder of our request for your review of the submission, &quot;{$submissionTitle},&quot; for {$contextName}. We were hoping to have your response by {$responseDueDate}, and this email has been automatically generated and sent with the passing of that date.\n<br />\nI believe that you would serve as an excellent reviewer of the manuscript. The submission\'s abstract is inserted below, and I hope that you will consider undertaking this important task for us.<br />\n<br />\nPlease log into the journal web site to indicate whether you will undertake the review or not, as well as to access the submission and to record your review and recommendation. The web site is {$contextUrl}<br />\n<br />\nThe review itself is due {$reviewDueDate}.<br />\n<br />\nIf you do not have your username and password for the journal\'s web site, you can use this link to reset your password (which will then be emailed to you along with your username). {$passwordResetUrl}<br />\n<br />\nSubmission URL: {$submissionReviewUrl}<br />\n<br />\nThank you for considering this request.<br />\n<br />\n{$editorialContactSignature}<br />\n<br />\n&quot;{$submissionTitle}&quot;<br />\n<br />\n{$submissionAbstract}','This email is automatically sent when a reviewer\'s confirmation due date elapses (see Review Options under Settings > Workflow > Review) and one-click reviewer access is disabled. Scheduled tasks must be enabled and configured (see the site configuration file).'),('REVIEW_REQUEST_REMIND_AUTO_ONECLICK','en_US','Article Review Request','{$reviewerName}:<br />\nJust a gentle reminder of our request for your review of the submission, &quot;{$submissionTitle},&quot; for {$contextName}. We were hoping to have your response by {$responseDueDate}, and this email has been automatically generated and sent with the passing of that date.\n<br />\nI believe that you would serve as an excellent reviewer of the manuscript. The submission\'s abstract is inserted below, and I hope that you will consider undertaking this important task for us.<br />\n<br />\nPlease log into the journal web site to indicate whether you will undertake the review or not, as well as to access the submission and to record your review and recommendation.<br />\n<br />\nThe review itself is due {$reviewDueDate}.<br />\n<br />\nSubmission URL: {$submissionReviewUrl}<br />\n<br />\nThank you for considering this request.<br />\n<br />\n{$editorialContactSignature}<br />\n<br />\n&quot;{$submissionTitle}&quot;<br />\n<br />\n{$submissionAbstract}','This email is automatically sent when a reviewer\'s confirmation due date elapses (see Review Options under Settings > Workflow > Review) and one-click reviewer access is enabled. Scheduled tasks must be enabled and configured (see the site configuration file).'),('REVIEW_REQUEST_SUBSEQUENT','en_US','Article Review Request','{$reviewerName}:<br />\n<br />\nThis regards the manuscript &quot;{$submissionTitle},&quot; which is under consideration by {$contextName}.<br />\n<br />\nFollowing the review of the previous version of the manuscript, the authors have now submitted a revised version of their paper. We would appreciate it if you could help evaluate it.<br />\n<br />\nPlease log into the journal web site by {$responseDueDate} to indicate whether you will undertake the review or not, as well as to access the submission and to record your review and recommendation. The web site is {$contextUrl}<br />\n<br />\nThe review itself is due {$reviewDueDate}.<br />\n<br />\nIf you do not have your username and password for the journal\'s web site, you can use this link to reset your password (which will then be emailed to you along with your username). {$passwordResetUrl}<br />\n<br />\nSubmission URL: {$submissionReviewUrl}<br />\n<br />\nThank you for considering this request.<br />\n<br />\n{$editorialContactSignature}<br />\n<br />\n&quot;{$submissionTitle}&quot;<br />\n<br />\n{$submissionAbstract}','This email from the Section Editor to a Reviewer requests that the reviewer accept or decline the task of reviewing a submission for a second or greater round of review. It provides information about the submission such as the title and abstract, a review due date, and how to access the submission itself. This message is used when the Standard Review Process is selected in Management > Settings > Workflow > Review. (Otherwise see REVIEW_REQUEST_ATTACHED_SUBSEQUENT.)'),('REVISED_VERSION_NOTIFY','en_US','Revised Version Uploaded','Editors:<br />\n<br />\nA revised version of &quot;{$submissionTitle}&quot; has been uploaded by the author {$authorName}.<br />\n<br />\nSubmission URL: {$submissionUrl}<br />\n<br />\n{$editorialContactSignature}','This email is automatically sent to the assigned editor when author uploads a revised version of an article.'),('STATISTICS_REPORT_NOTIFICATION','en_US','Editorial activity for {$month}, {$year}','\n{$name}, <br />\n<br />\nYour journal health report for {$month}, {$year} is now available. Your key stats for this month are below.<br />\n<ul>\n	<li>New submissions this month: {$newSubmissions}</li>\n	<li>Declined submissions this month: {$declinedSubmissions}</li>\n	<li>Accepted submissions this month: {$acceptedSubmissions}</li>\n	<li>Total submissions in the system: {$totalSubmissions}</li>\n</ul>\nLogin to the journal to view more detailed <a href=\"{$editorialStatsLink}\">editorial trends</a> and <a href=\"{$publicationStatsLink}\">published article stats</a>. A full copy of this month\'s editorial trends is attached.<br />\n<br />\nSincerely,<br />\n{$principalContactSignature}','This email is automatically sent monthly to editors and journal managers to provide them a system health overview.'),('SUBMISSION_ACK','en_US','Submission Acknowledgement','{$authorName}:<br />\n<br />\nThank you for submitting the manuscript, &quot;{$submissionTitle}&quot; to {$contextName}. With the online journal management system that we are using, you will be able to track its progress through the editorial process by logging in to the journal web site:<br />\n<br />\nSubmission URL: {$submissionUrl}<br />\nUsername: {$authorUsername}<br />\n<br />\nIf you have any questions, please contact me. Thank you for considering this journal as a venue for your work.<br />\n<br />\n{$editorialContactSignature}','This email, when enabled, is automatically sent to an author when they complete the process of submitting a manuscript to the journal. It provides information about tracking the submission through the process and thanks the author for the submission.'),('SUBMISSION_ACK_NOT_USER','en_US','Submission Acknowledgement','Hello,<br />\n<br />\n{$submitterName} has submitted the manuscript, &quot;{$submissionTitle}&quot; to {$contextName}. <br />\n<br />\nIf you have any questions, please contact me. Thank you for considering this journal as a venue for your work.<br />\n<br />\n{$editorialContactSignature}','This email, when enabled, is automatically sent to the other authors who are not users within OJS specified during the submission process.'),('SUBSCRIPTION_AFTER_EXPIRY','en_US','Subscription Expired','{$subscriberName}:<br />\n<br />\nYour {$contextName} subscription has expired.<br />\n<br />\n{$subscriptionType}<br />\nExpiry date: {$expiryDate}<br />\n<br />\nTo renew your subscription, please go to the journal website. You are able to log in to the system with your username, &quot;{$username}&quot;.<br />\n<br />\nIf you have any questions, please feel free to contact me.<br />\n<br />\n{$subscriptionContactSignature}','This email notifies a subscriber that their subscription has expired. It provides the journal\'s URL along with instructions for access.'),('SUBSCRIPTION_AFTER_EXPIRY_LAST','en_US','Subscription Expired - Final Reminder','{$subscriberName}:<br />\n<br />\nYour {$contextName} subscription has expired.<br />\nPlease note that this is the final reminder that will be emailed to you.<br />\n<br />\n{$subscriptionType}<br />\nExpiry date: {$expiryDate}<br />\n<br />\nTo renew your subscription, please go to the journal website. You are able to log in to the system with your username, &quot;{$username}&quot;.<br />\n<br />\nIf you have any questions, please feel free to contact me.<br />\n<br />\n{$subscriptionContactSignature}','This email notifies a subscriber that their subscription has expired. It provides the journal\'s URL along with instructions for access.'),('SUBSCRIPTION_BEFORE_EXPIRY','en_US','Notice of Subscription Expiry','{$subscriberName}:<br />\n<br />\nYour {$contextName} subscription is about to expire.<br />\n<br />\n{$subscriptionType}<br />\nExpiry date: {$expiryDate}<br />\n<br />\nTo ensure the continuity of your access to this journal, please go to the journal website and renew your subscription. You are able to log in to the system with your username, &quot;{$username}&quot;.<br />\n<br />\nIf you have any questions, please feel free to contact me.<br />\n<br />\n{$subscriptionContactSignature}','This email notifies a subscriber that their subscription will soon expire. It provides the journal\'s URL along with instructions for access.'),('SUBSCRIPTION_NOTIFY','en_US','Subscription Notification','{$subscriberName}:<br />\n<br />\nYou have now been registered as a subscriber in our online journal management system for {$contextName}, with the following subscription:<br />\n<br />\n{$subscriptionType}<br />\n<br />\nTo access content that is available only to subscribers, simply log in to the system with your username, &quot;{$username}&quot;.<br />\n<br />\nOnce you have logged in to the system you can change your profile details and password at any point.<br />\n<br />\nPlease note that if you have an institutional subscription, there is no need for users at your institution to log in, since requests for subscription content will be automatically authenticated by the system.<br />\n<br />\nIf you have any questions, please feel free to contact me.<br />\n<br />\n{$subscriptionContactSignature}','This email notifies a registered reader that the Manager has created a subscription for them. It provides the journal\'s URL along with instructions for access.'),('SUBSCRIPTION_PURCHASE_INDL','en_US','Subscription Purchase: Individual','An individual subscription has been purchased online for {$contextName} with the following details.<br />\n<br />\nSubscription Type:<br />\n{$subscriptionType}<br />\n<br />\nUser:<br />\n{$userDetails}<br />\n<br />\nMembership Information (if provided):<br />\n{$membership}<br />\n<br />\nTo view or edit this subscription, please use the following URL.<br />\n<br />\nSubscription URL: {$subscriptionUrl}<br />\n','This email notifies the Subscription Manager that an individual subscription has been purchased online. It provides summary information about the subscription and a quick access link to the purchased subscription.'),('SUBSCRIPTION_PURCHASE_INSTL','en_US','Subscription Purchase: Institutional','An institutional subscription has been purchased online for {$contextName} with the following details. To activate this subscription, please use the provided Subscription URL and set the subscription status to \'Active\'.<br />\n<br />\nSubscription Type:<br />\n{$subscriptionType}<br />\n<br />\nInstitution:<br />\n{$institutionName}<br />\n{$institutionMailingAddress}<br />\n<br />\nDomain (if provided):<br />\n{$domain}<br />\n<br />\nIP Ranges (if provided):<br />\n{$ipRanges}<br />\n<br />\nContact Person:<br />\n{$userDetails}<br />\n<br />\nMembership Information (if provided):<br />\n{$membership}<br />\n<br />\nTo view or edit this subscription, please use the following URL.<br />\n<br />\nSubscription URL: {$subscriptionUrl}<br />\n','This email notifies the Subscription Manager that an institutional subscription has been purchased online. It provides summary information about the subscription and a quick access link to the purchased subscription.'),('SUBSCRIPTION_RENEW_INDL','en_US','Subscription Renewal: Individual','An individual subscription has been renewed online for {$contextName} with the following details.<br />\n<br />\nSubscription Type:<br />\n{$subscriptionType}<br />\n<br />\nUser:<br />\n{$userDetails}<br />\n<br />\nMembership Information (if provided):<br />\n{$membership}<br />\n<br />\nTo view or edit this subscription, please use the following URL.<br />\n<br />\nSubscription URL: {$subscriptionUrl}<br />\n','This email notifies the Subscription Manager that an individual subscription has been renewed online. It provides summary information about the subscription and a quick access link to the renewed subscription.'),('SUBSCRIPTION_RENEW_INSTL','en_US','Subscription Renewal: Institutional','An institutional subscription has been renewed online for {$contextName} with the following details.<br />\n<br />\nSubscription Type:<br />\n{$subscriptionType}<br />\n<br />\nInstitution:<br />\n{$institutionName}<br />\n{$institutionMailingAddress}<br />\n<br />\nDomain (if provided):<br />\n{$domain}<br />\n<br />\nIP Ranges (if provided):<br />\n{$ipRanges}<br />\n<br />\nContact Person:<br />\n{$userDetails}<br />\n<br />\nMembership Information (if provided):<br />\n{$membership}<br />\n<br />\nTo view or edit this subscription, please use the following URL.<br />\n<br />\nSubscription URL: {$subscriptionUrl}<br />\n','This email notifies the Subscription Manager that an institutional subscription has been renewed online. It provides summary information about the subscription and a quick access link to the renewed subscription.'),('USER_REGISTER','en_US','Journal Registration','{$userFullName}<br />\n<br />\nYou have now been registered as a user with {$contextName}. We have included your username and password in this email, which are needed for all work with this journal through its website. At any point, you can ask to be removed from the journal\'s list of users by contacting me.<br />\n<br />\nUsername: {$username}<br />\nPassword: {$password}<br />\n<br />\nThank you,<br />\n{$principalContactSignature}','This email is sent to a newly registered user to welcome them to the system and provide them with a record of their username and password.'),('USER_VALIDATE','en_US','Validate Your Account','{$userFullName}<br />\n<br />\nYou have created an account with {$contextName}, but before you can start using it, you need to validate your email account. To do this, simply follow the link below:<br />\n<br />\n{$activateUrl}<br />\n<br />\nThank you,<br />\n{$principalContactSignature}','This email is sent to a newly registered user to validate their email account.');
+INSERT INTO `email_templates_default_data` VALUES (1,'PASSWORD_RESET_CONFIRM','en','Password Reset Confirm','Password Reset Confirmation','We have received a request to reset your password for the {$siteTitle} web site.<br />\n<br />\nIf you did not make this request, please ignore this email and your password will not be changed. If you wish to reset your password, click on the below URL.<br />\n<br />\nReset my password: {$passwordResetUrl}<br />\n<br />\n{$siteContactName}'),(2,'USER_REGISTER','en','User Created','Journal Registration','{$recipientName}<br />\n<br />\nYou have now been registered as a user with {$journalName}. We have included your username and password in this email, which are needed for all work with this journal through its website. At any point, you can ask to be removed from the journal\'s list of users by contacting me.<br />\n<br />\nUsername: {$recipientUsername}<br />\nPassword: {$password}<br />\n<br />\nThank you,<br />\n{$signature}'),(3,'USER_VALIDATE_CONTEXT','en','Validate Email (Journal Registration)','Validate Your Account','{$recipientName}<br />\n<br />\nYou have created an account with {$journalName}, but before you can start using it, you need to validate your email account. To do this, simply follow the link below:<br />\n<br />\n{$activateUrl}<br />\n<br />\nThank you,<br />\n{$journalSignature}'),(4,'USER_VALIDATE_SITE','en','Validate Email (Site)','Validate Your Account','{$recipientName}<br />\n<br />\nYou have created an account with {$siteTitle}, but before you can start using it, you need to validate your email account. To do this, simply follow the link below:<br />\n<br />\n{$activateUrl}<br />\n<br />\nThank you,<br />\n{$siteSignature}'),(5,'REVIEWER_REGISTER','en','Reviewer Register','Registration as Reviewer with {$journalName}','<p>Dear {$recipientName},</p><p>In light of your expertise, we have registered your name in the reviewer database for {$journalName}. This does not entail any form of commitment on your part, but simply enables us to approach you with a submission to possibly review. On being invited to review, you will have an opportunity to see the title and abstract of the paper in question, and you\'ll always be in a position to accept or decline the invitation. You can also ask at any point to have your name removed from this reviewer list.</p><p>We are providing you with a username and password, which is used in all interactions with the journal through its website. You may wish, for example, to update your profile, including your reviewing interests.</p><p>Username: {$recipientUsername}<br />Password: {$password}</p><p>Thank you,</p>{$signature}'),(6,'ISSUE_PUBLISH_NOTIFY','en','Issue Published Notify','Just published: {$issueIdentification} of {$journalName}','<p>Dear {$recipientName},</p><p>We are pleased to announce the publication of <a href=\"{$issueUrl}\">{$issueIdentification}</a> of {$journalName}.  We invite you to read and share this work with your scholarly community.</p><p>Many thanks to our authors, reviewers, and editors for their valuable contributions, and to our readers for your continued interest.</p><p>Thank you,</p>{$signature}'),(7,'SUBMISSION_ACK','en','Submission Confirmation','Thank you for your submission to {$journalName}','<p>Dear {$recipientName},</p><p>Thank you for your submission to {$journalName}. We have received your submission, {$submissionTitle}, and a member of our editorial team will see it soon. You will be sent an email when an initial decision is made, and we may contact you for further information.</p><p>You can view your submission and track its progress through the editorial process at the following location:</p><p>Submission URL: {$authorSubmissionUrl}</p><p>If you have been logged out, you can login again with the username {$recipientUsername}.</p><p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p><p>Thank you for considering {$journalName} as a venue for your work.</p>{$journalSignature}'),(8,'SUBMISSION_ACK_NOT_USER','en','Submission Confirmation (Other Authors)','Submission confirmation','<p>Dear {$recipientName},</p><p>You have been named as a co-author on a submission to {$journalName}. The submitter, {$submitterName}, provided the following details:</p><p>{$submissionTitle}<br>{$authorsWithAffiliation}</p><p>If any of these details are incorrect, or you do not wish to be named on this submission, please contact me.</p><p>Thank you for considering {$journalName} as a venue for your work.</p><p>Kind regards,</p>{$journalSignature}'),(9,'EDITOR_ASSIGN','en','Editor Assigned','You have been assigned as an editor on a submission to {$journalName}','<p>Dear {$recipientName},</p><p>The following submission has been assigned to you to see through the editorial process.</p><p><a href=\"{$submissionUrl}\">{$submissionTitle}</a><br />{$authors}</p><p><b>Abstract</b></p>{$submissionAbstract}<p>If you find the submission to be relevant for {$journalName}, please forward the submission to the review stage by selecting \"Send to Review\" and then assign reviewers by clicking \"Add Reviewer\".</p><p>If the submission is not appropriate for this journal, please decline the submission.</p><p>Thank you in advance.</p><p>Kind regards,</p>{$journalSignature}'),(10,'REVIEW_CANCEL','en','Reviewer Unassign','Request for Review Cancelled','<p>Dear {$recipientName},</p><p>Recently, we asked you to review a submission to {$journalName}. We have decided to cancel the request for you to reivew the submission, {$submissionTitle}.</p><p>We apologize any inconvenience this may cause you and hope that we will be able to call on you to assist with this journal\'s review process in the future.</p><p>If you have any questions, please contact me.</p>{$signature}'),(11,'REVIEW_REINSTATE','en','Reviewer Reinstate','Can you still review something for {$journalName}?','<p>Dear {$recipientName},</p><p>We recently cancelled our request for you to review a submission, {$submissionTitle}, for {$journalName}. We\'ve reversed that decision and we hope that you are still able to conduct the review.</p><p>If you are able to assist with this submission\'s review, you can <a href=\"{$reviewAssignmentUrl}\">login to the journal</a> to view the submission, upload review files, and submit your review request.</p><p>If you have any questions, please contact me.</p><p>Kind regards,</p>{$signature}'),(12,'REVIEW_RESEND_REQUEST','en','Resend Review Request to Reviewer','Requesting your review again for {$journalName}','<p>Dear {$recipientName},</p><p>Recently, you declined our request to review a submission, {$submissionTitle}, for {$journalName}. I\'m writing to see if you are able to conduct the review after all.</p><p>We would be grateful if you\'re able to perform this review, but we understand if that is not possible at this time. Either way, please <a href=\"{$reviewAssignmentUrl}\">accept or decline the request</a> by {$responseDueDate}, so that we can find an alternate reviewer.</p><p>If you have any questions, please contact me.</p><p>Kind regards,</p>{$signature}'),(13,'REVIEW_REQUEST','en','Review Request','Invitation to review','<p>Dear {$recipientName},</p><p>I believe that you would serve as an excellent reviewer for a submission  to {$journalName}. The submission\'s title and abstract are below, and I hope that you will consider undertaking this important task for us.</p><p>If you are able to review this submission, your review is due by {$reviewDueDate}. You can view the submission, upload review files, and submit your review by logging into the journal site and following the steps at the link below.</p><p><a href=\"{$reviewAssignmentUrl}\">{$submissionTitle}</a></p><p><b>Abstract</b></p>{$submissionAbstract}<p>Please <a href=\"{$reviewAssignmentUrl}\">accept or decline</a> the review by <b>{$responseDueDate}</b>.</p><p>You may contact me with any questions about the submission or the review process.</p><p>Thank you for considering this request. Your help is much appreciated.</p><p>Kind regards,</p>{$signature}'),(14,'REVIEW_REQUEST_SUBSEQUENT','en','Review Request Subsequent','Request to review a revised submission','<p>Dear {$recipientName},</p><p>Thank you for your review of <a href=\"{$reviewAssignmentUrl}\">{$submissionTitle}</a>. The authors have considered the reviewers\' feedback and have now submitted a revised version of their work. I\'m writing to ask if you would conduct a second round of peer review for this submission.</p><p>If you are able to review this submission, your review is due by {$reviewDueDate}. You can <a href=\"{$reviewAssignmentUrl}\">follow the review steps</a> to view the submission, upload review files, and submit your review comments.<p><p><a href=\"{$reviewAssignmentUrl}\">{$submissionTitle}</a></p><p><b>Abstract</b></p>{$submissionAbstract}<p>Please <a href=\"{$reviewAssignmentUrl}\">accept or decline</a> the review by <b>{$responseDueDate}</b>.</p><p>Please feel free to contact me with any questions about the submission or the review process.</p><p>Thank you for considering this request. Your help is much appreciated.</p><p>Kind regards,</p>{$signature}'),(15,'REVIEW_RESPONSE_OVERDUE_AUTO','en','Review Response Overdue (Automated)','Will you be able to review this for us?','<p>Dear {$recipientName},</p><p>This email is an automated reminder from {$journalName} in regards to our request for your review of the submission, \"{$submissionTitle}.\"</p><p>You are receiving this email because we have not yet received a confirmation from you indicating whether or not you are able to undertake the review of this submission.</p><p>Please let us know whether or not you are able to undertake this review by using our submission management software to accept or decline this request.</p><p>If you are able to review this submission, your review is due by {$reviewDueDate}. You can follow the review steps to view the submission, upload review files, and submit your review comments.</p><p><a href=\"{$reviewAssignmentUrl}\">{$submissionTitle}</a></p><p><b>Abstract</b></p>{$submissionAbstract}<p>Please feel free to contact me with any questions about the submission or the review process.</p><p>Thank you for considering this request. Your help is much appreciated.</p><p>Kind regards,</p>{$journalSignature}'),(16,'REVIEW_CONFIRM','en','Review Confirm','Review accepted: {$reviewerName} accepted review assignment for #{$submissionId} {$authorsShort} — {$submissionTitle}','<p>Dear {$recipientName},</p><p>{$reviewerName} has accepted the following review:</p><p><a href=\"{$submissionUrl}\">#{$submissionId} {$authorsShort} — {$submissionTitle}</a><br /><b>Type:</b> {$reviewMethod}</p><p><b>Review Due:</b> {$reviewDueDate}</p><p>Login to <a href=\"{$submissionUrl}\">view all reviewer assignments</a> for this submission.</p><br><br>—<br>This is an automated message from <a href=\"{$journalUrl}\">{$journalName}</a>.'),(17,'REVIEW_DECLINE','en','Review Decline','Unable to Review','Editors:<br />\n<br />\nI am afraid that at this time I am unable to review the submission, &quot;{$submissionTitle},&quot; for {$journalName}. Thank you for thinking of me, and another time feel free to call on me.<br />\n<br />\n{$senderName}'),(18,'REVIEW_ACK','en','Review Acknowledgement','Thank you for your review','<p>Dear {$recipientName},</p>\n<p>Thank you for completing your review of the submission, {$submissionTitle}, for {$journalName}. We appreciate your time and expertise in contributing to the quality of the work that we publish.</p>\n<p>It has been a pleasure to work with you as a reviewer for {$journalName}, and we hope to have the opportunity to work with you again in the future.</p>\n<p>Kind regards,</p>\n<p>{$signature}</p>'),(19,'REVIEW_REMIND','en','Review Reminder','A reminder to please complete your review','<p>Dear {$recipientName},</p><p>Just a gentle reminder of our request for your review of the submission, \"{$submissionTitle},\" for {$journalName}. We were expecting to have this review by {$reviewDueDate} and we would be pleased to receive it as soon as you are able to prepare it.</p><p>You can <a href=\"{$reviewAssignmentUrl}\">login to the journal</a> and follow the review steps to view the submission, upload review files, and submit your review comments.</p><p>If you need an extension of the deadline, please contact me. I look forward to hearing from you.</p><p>Thank you in advance and kind regards,</p>{$signature}'),(20,'REVIEW_REMIND_AUTO','en','Review Reminder (Automated)','A reminder to please complete your review','<p>Dear {$recipientName}:</p><p>This email is an automated reminder from {$journalName} in regards to our request for your review of the submission, \"{$submissionTitle}.\"</p><p>We were expecting to have this review by {$reviewDueDate} and we would be pleased to receive it as soon as you are able to prepare it.</p><p>Please <a href=\"{$reviewAssignmentUrl}\">login to the journal</a> and follow the review steps to view the submission, upload review files, and submit your review comments.</p><p>If you need an extension of the deadline, please contact me. I look forward to hearing from you.</p><p>Thank you in advance and kind regards,</p>{$journalSignature}'),(21,'REVIEW_COMPLETE','en','Review Completed','Review complete: {$reviewerName} recommends {$reviewRecommendation} for #{$submissionId} {$authorsShort} — {$submissionTitle}','<p>Dear {$recipientName},</p><p>{$reviewerName} completed the following review:</p><p><a href=\"{$submissionUrl}\">#{$submissionId} {$authorsShort} — {$submissionTitle}</a><br /><b>Recommendation:</b> {$reviewRecommendation}<br /><b>Type:</b> {$reviewMethod}</p><p>Login to <a href=\"{$submissionUrl}\">view all files and comments</a> provided by this reviewer.</p>'),(22,'REVIEW_EDIT','en','Review Edited','Your review assignment has been changed for {$journalName}','<p>Dear {$recipientName},</p><p>An editor has made changes to your review assignment for {$journalName}. Please review the details below and let us know if you have any questions.</p><p><a href=\"{$reviewAssignmentUrl}\">{$submissionTitle}</a><br /><b>Type:</b> {$reviewMethod}<br /><b>Accept or Decline By:</b> {$responseDueDate}<br /><b>Submit Review By:</b> {$reviewDueDate}</p><p>You can login to <a href=\"{$reviewAssignmentUrl}\">complete this review</a> at any time.</p>'),(23,'EDITOR_DECISION_ACCEPT','en','Submission Accepted','Your submission has been accepted to {$journalName}','<p>Dear {$recipientName},</p><p>I am pleased to inform you that we have decided to accept your submission without further revision. After careful review, we found your submission, {$submissionTitle}, to meet or exceed our expectations. We are excited to publish your piece in {$journalName} and we thank you for choosing our journal as a venue for your work.</p><p>Your submission is now forthcoming in a future issue of {$journalName} and you are welcome to include it in your list of publications. We recognize the hard work that goes into every successful submission and we want to congratulate you on reaching this stage.</p><p>Your submission will now undergo copy editing and formatting to prepare it for publication.</p><p>You will shortly receive further instructions.</p><p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p><p>Kind regards,</p>{$signature}'),(24,'EDITOR_DECISION_SEND_TO_EXTERNAL','en','Sent to Review','Your submission has been sent for review','<p>Dear {$recipientName},</p><p>I am pleased to inform you that an editor has reviewed your submission, {$submissionTitle}, and has decided to send it for peer review. An editor will identify qualified reviewers who will provide feedback on your submission.</p><p>{$reviewTypeDescription} You will hear from us with feedback from the reviewers and information about the next steps.</p><p>Please note that sending the submission to peer review does not guarantee that it will be published. We will consider the reviewers\' recommendations before deciding to accept the submission for publication. You may be asked to make revisions and respond to the reviewers\' comments before a final decision is made.</p><p>If you have any questions, please contact me from your submission dashboard.</p><p>{$signature}</p>'),(25,'EDITOR_DECISION_SEND_TO_PRODUCTION','en','Sent to Production','Next steps for publishing your submission','<p>Dear {$recipientName},</p><p>I am writing from {$journalName} to let you know that the editing of your submission, {$submissionTitle}, is complete. Your submission will now advance to the production stage, where the final galleys will be prepared for publication. We will contact you if we need any further assistance.</p><p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p><p>Kind regards,</p>{$signature}'),(26,'EDITOR_DECISION_REVISIONS','en','Revisions Requested','Your submission has been reviewed and we encourage you to submit revisions','<p>Dear {$recipientName},</p><p>Your submission {$submissionTitle} has been reviewed and we would like to encourage you to submit revisions that address the reviewers\' comments. An editor will review these revisions and if they address the concerns adequately, your submission may be accepted for publication.</p><p>The reviewers\' comments are included at the bottom of this email. Please respond to each point in the reviewers\' comments and identify what changes you have made. If you find any of the reviewer\'s comments to be unjustified or inappropriate, please explain your perspective.</p><p>When you have completed your revisions, you can upload revised documents along with your response to the reviewers\' comments at your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>. If you have been logged out, you can login again with the username {$recipientUsername}.</p><p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p><p>We look forward to receiving your revised submission.</p><p>Kind regards,</p>{$signature}<hr><p>The following comments were received from reviewers.</p>{$allReviewerComments}'),(27,'EDITOR_DECISION_RESUBMIT','en','Resubmit for Review','Your submission has been reviewed - please revise and resubmit','<p>Dear {$recipientName},</p><p>After reviewing your submission, {$submissionTitle}, the reviewers have recommended that your submission cannot be accepted for publication in its current form. However, we would like to encourage you to submit a revised version that addresses the reviewers\' comments. Your revisions will be reviewed by an editor and may be sent out for another round of peer review.</p><p>Please note that resubmitting your work does not guarantee that it will be accepted.</p><p>The reviewers\' comments are included at the bottom of this email. Please respond to each point and identify what changes you have made. If you find any of the reviewer\'s comments inappropriate, please explain your perspective. If you have questions about the recommendations in your review, please include these in your response.</p><p>When you have completed your revisions, you can upload revised documents along with your response to the reviewers\' comments <a href=\"{$authorSubmissionUrl}\">at your submission dashboard</a>. If you have been logged out, you can login again with the username {$recipientUsername}.</p><p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p><p>We look forward to receiving your revised submission.</p><p>Kind regards,</p>{$signature}<hr><p>The following comments were received from reviewers.</p>{$allReviewerComments}'),(28,'EDITOR_DECISION_DECLINE','en','Submission Declined','Your submission has been declined','<p>Dear {$recipientName},</p><p>While we appreciate receiving your submission, we are unable to accept {$submissionTitle} for publication on the basis of the comments from reviewers.</p><p>The reviewers\' comments are included at the bottom of this email.</p><p>Thank you for submitting to {$journalName}. Although it is disappointing to have a submission declined, I hope you find the reviewers\' comments to be constructive and helpful.</p><p>You are now free to submit the work elsewhere if you choose to do so.</p><p>Kind regards,</p>{$signature}<hr><p>The following comments were received from reviewers.</p>{$allReviewerComments}'),(29,'EDITOR_DECISION_INITIAL_DECLINE','en','Submission Declined (Pre-Review)','Your submission has been declined','<p>Dear {$recipientName},</p><p>I’m sorry to inform you that, after reviewing your submission, {$submissionTitle}, the editor has found that it does not meet our requirements for publication in {$journalName}.</p><p>I wish you success if you consider submitting your work elsewhere.</p><p>Kind regards,</p>{$signature}'),(30,'EDITOR_RECOMMENDATION','en','Recommendation Made','Editor Recommendation','<p>Dear {$recipientName},</p><p>After considering the reviewers\' feedback, I would like to make the following recommendation regarding the submission {$submissionTitle}.</p><p>My recommendation is: {$recommendation}.</p><p>Please visit the submission\'s <a href=\"{$submissionUrl}\">editorial workflow</a> to act on this recommendation.</p><p>Please feel free to contact me with any questions.</p><p>Kind regards,</p><p>{$senderName}</p>'),(31,'EDITOR_DECISION_NOTIFY_OTHER_AUTHORS','en','Notify Other Authors','An update regarding your submission','<p>The following email was sent to {$submittingAuthorName} from {$journalName} regarding {$submissionTitle}.</p>\n<p>You are receiving a copy of this notification because you are identified as an author of the submission. Any instructions in the message below are intended for the submitting author, {$submittingAuthorName}, and no action is required of you at this time.</p>\n\n{$messageToSubmittingAuthor}'),(32,'EDITOR_DECISION_NOTIFY_REVIEWERS','en','Notify Reviewers of Decision','Thank you for your review','<p>Dear {$recipientName},</p>\n<p>Thank you for completing your review of the submission, {$submissionTitle}, for {$journalName}. We appreciate your time and expertise in contributing to the quality of the work that we publish. We have shared your comments with the authors, along with our other reviewers\' comments and the editor\'s decision.</p>\n<p>Based on the feedback we received, we have notified the authors of the following:</p>\n<p>{$decisionDescription}</p>\n<p>Your recommendation was considered alongside the recommendations of other reviewers before coming to a decision. Occasionally the editor\'s decision may differ from the recommendation made by one or more reviewers. The editor considers many factors, and does not take these decisions lightly. We are grateful for our reviewers\' expertise and suggestions.</p>\n<p>It has been a pleasure to work with you as a reviewer for {$journalName}, and we hope to have the opportunity to work with you again in the future.</p>\n<p>Kind regards,</p>\n<p>{$signature}</p>'),(33,'EDITOR_DECISION_NEW_ROUND','en','New Review Round Initiated','Your submission has been sent for another round of review','<p>Dear {$recipientName},</p>\n<p>Your revised submission, {$submissionTitle}, has been sent for a new round of peer review. \nYou will hear from us with feedback from the reviewers and information about the next steps.</p>\n<p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p>\n<p>Kind regards,</p>\n<p>{$signature}</p>\n'),(34,'EDITOR_DECISION_REVERT_DECLINE','en','Reinstate Declined Submission','We have reversed the decision to decline your submission','<p>Dear {$recipientName},</p>\n<p>The decision to decline your submission, {$submissionTitle}, has been reversed. \nAn editor will complete the round of review and you will be notified when a \ndecision is made.</p>\n<p>Occasionally, a decision to decline a submission will be recorded accidentally in \nour system and must be reverted. I apologize for any confusion this may have caused.</p>\n<p>We will contact you if we need any further assistance.</p>\n<p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p>\n<p>Kind regards,</p>\n<p>{$signature}</p>\n'),(35,'EDITOR_DECISION_REVERT_INITIAL_DECLINE','en','Reinstate Submission Declined Without Review','We have reversed the decision to decline your submission','<p>Dear {$recipientName},</p>\n<p>The decision to decline your submission, {$submissionTitle}, has been reversed. \nAn editor will look further at your submission before deciding whether to decline \nthe submission or send it for review.</p>\n<p>Occasionally, a decision to decline a submission will be recorded accidentally in \nour system and must be reverted. I apologize for any confusion this may have caused.</p>\n<p>We will contact you if we need any further assistance.</p>\n<p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p>\n<p>Kind regards,</p>\n<p>{$signature}</p>\n'),(36,'EDITOR_DECISION_SKIP_REVIEW','en','Submission Accepted (Without Review)','Your submission has been sent for copyediting','<p>Dear {$recipientName},</p>\n<p>I am pleased to inform you that we have decided to accept your submission without peer review. We found your submission, {$submissionTitle}, to meet our expectations, and we do not require that work of this type undergo peer review. We are excited to publish your piece in {$journalName} and we thank you for choosing our journal as a venue for your work.</p>\nYour submission is now forthcoming in a future issue of {$journalName} and you are welcome to include it in your list of publications. We recognize the hard work that goes into every successful submission and we want to congratulate you on your efforts.</p>\n<p>Your submission will now undergo copy editing and formatting to prepare it for publication. </p>\n<p>You will shortly receive further instructions.</p>\n<p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p>\n<p>Kind regards,</p>\n<p>{$signature}</p>\n'),(37,'EDITOR_DECISION_BACK_FROM_PRODUCTION','en','Submission Sent Back to Copyediting','Your submission has been sent back to copyediting','<p>Dear {$recipientName},</p><p>Your submission, {$submissionTitle}, has been sent back to the copyediting stage, where it will undergo further copyediting and formatting to prepare it for publication.</p><p>Occasionally, a submission is sent to the production stage before it is ready for the final galleys to be prepared for publication. Your submission is still forthcoming. I apologize for any confusion.</p><p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p><p>We will contact you if we need any further assistance.</p><p>Kind regards,</p><p>{$signature}</p>'),(38,'EDITOR_DECISION_BACK_FROM_COPYEDITING','en','Submission Sent Back from Copyediting','Your submission has been sent back to review','<p>Dear {$recipientName},</p><p>Your submission, {$submissionTitle}, has been sent back to the review stage. It will undergo further review before it can be accepted for publication.</p><p>Occasionally, a decision to accept a submission will be recorded accidentally in our system and we must send it back to review. I apologize for any confusion this has caused. We will work to complete any further review quickly so that you have a final decision as soon as possible.</p><p>We will contact you if we need any further assistance.</p><p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p><p>Kind regards,</p><p>{$signature}</p>'),(39,'EDITOR_DECISION_CANCEL_REVIEW_ROUND','en','Review Round Cancelled','A review round for your submission has been cancelled','<p>Dear {$recipientName},</p><p>We recently opened a new review round for your submission, {$submissionTitle}. We are closing this review round now.</p><p>Occasionally, a decision to open a round of review will be recorded accidentally in our system and we must cancel this review round. I apologize for any confusion this may have caused.</p><p>We will contact you if we need any further assistance.</p><p>If you have any questions, please contact me from your <a href=\"{$authorSubmissionUrl}\">submission dashboard</a>.</p><p>Kind regards,</p><p>{$signature}</p>'),(40,'SUBSCRIPTION_NOTIFY','en','Subscription Notify','Subscription Notification','{$recipientName}:<br />\n<br />\nYou have now been registered as a subscriber in our online journal management system for {$journalName}, with the following subscription:<br />\n<br />\n{$subscriptionType}<br />\n<br />\nTo access content that is available only to subscribers, simply log in to the system with your username, &quot;{$recipientUsername}&quot;.<br />\n<br />\nOnce you have logged in to the system you can change your profile details and password at any point.<br />\n<br />\nPlease note that if you have an institutional subscription, there is no need for users at your institution to log in, since requests for subscription content will be automatically authenticated by the system.<br />\n<br />\nIf you have any questions, please feel free to contact me.<br />\n<br />\n{$subscriptionSignature}'),(41,'OPEN_ACCESS_NOTIFY','en','Open Access Notify','Free to read: {$issueIdentification} of {$journalName} is now open access','<p>Dear {$recipientName},</p><p>We are pleased to inform you that <a href=\"{$issueUrl}\">{$issueIdentification}</a> of {$journalName} is now available under open access.  A subscription is no longer required to read this issue.</p><p>Thank you for your continuing interest in our work.</p>{$journalSignature}'),(42,'SUBSCRIPTION_BEFORE_EXPIRY','en','Subscription Expires Soon','Notice of Subscription Expiry','{$recipientName}:<br />\n<br />\nYour {$journalName} subscription is about to expire.<br />\n<br />\n{$subscriptionType}<br />\nExpiry date: {$expiryDate}<br />\n<br />\nTo ensure the continuity of your access to this journal, please go to the journal website and renew your subscription. You are able to log in to the system with your username, &quot;{$recipientUsername}&quot;.<br />\n<br />\nIf you have any questions, please feel free to contact me.<br />\n<br />\n{$subscriptionSignature}'),(43,'SUBSCRIPTION_AFTER_EXPIRY','en','Subscription Expired','Subscription Expired','{$recipientName}:<br />\n<br />\nYour {$journalName} subscription has expired.<br />\n<br />\n{$subscriptionType}<br />\nExpiry date: {$expiryDate}<br />\n<br />\nTo renew your subscription, please go to the journal website. You are able to log in to the system with your username, &quot;{$recipientUsername}&quot;.<br />\n<br />\nIf you have any questions, please feel free to contact me.<br />\n<br />\n{$subscriptionSignature}'),(44,'SUBSCRIPTION_AFTER_EXPIRY_LAST','en','Subscription Expired Last','Subscription Expired - Final Reminder','{$recipientName}:<br />\n<br />\nYour {$journalName} subscription has expired.<br />\nPlease note that this is the final reminder that will be emailed to you.<br />\n<br />\n{$subscriptionType}<br />\nExpiry date: {$expiryDate}<br />\n<br />\nTo renew your subscription, please go to the journal website. You are able to log in to the system with your username, &quot;{$recipientUsername}&quot;.<br />\n<br />\nIf you have any questions, please feel free to contact me.<br />\n<br />\n{$subscriptionSignature}'),(45,'SUBSCRIPTION_PURCHASE_INDL','en','Purchase Individual Subscription','Subscription Purchase: Individual','An individual subscription has been purchased online for {$journalName} with the following details.<br />\n<br />\nSubscription Type:<br />\n{$subscriptionType}<br />\n<br />\nUser:<br />\n{$subscriberDetails}<br />\n<br />\nMembership Information (if provided):<br />\n{$membership}<br />\n<br />\nTo view or edit this subscription, please use the following URL.<br />\n<br />\nSubscription URL: {$subscriptionUrl}<br />\n'),(46,'SUBSCRIPTION_PURCHASE_INSTL','en','Purchase Institutional Subscription','Subscription Purchase: Institutional','An institutional subscription has been purchased online for {$journalName} with the following details. To activate this subscription, please use the provided Subscription URL and set the subscription status to \'Active\'.<br />\n<br />\nSubscription Type:<br />\n{$subscriptionType}<br />\n<br />\nInstitution:<br />\n{$institutionName}<br />\n{$institutionMailingAddress}<br />\n<br />\nDomain (if provided):<br />\n{$domain}<br />\n<br />\nIP Ranges (if provided):<br />\n{$ipRanges}<br />\n<br />\nContact Person:<br />\n{$subscriberDetails}<br />\n<br />\nMembership Information (if provided):<br />\n{$membership}<br />\n<br />\nTo view or edit this subscription, please use the following URL.<br />\n<br />\nSubscription URL: {$subscriptionUrl}<br />\n'),(47,'SUBSCRIPTION_RENEW_INDL','en','Renew Individual Subscription','Subscription Renewal: Individual','An individual subscription has been renewed online for {$journalName} with the following details.<br />\n<br />\nSubscription Type:<br />\n{$subscriptionType}<br />\n<br />\nUser:<br />\n{$subscriberDetails}<br />\n<br />\nMembership Information (if provided):<br />\n{$membership}<br />\n<br />\nTo view or edit this subscription, please use the following URL.<br />\n<br />\nSubscription URL: {$subscriptionUrl}<br />\n'),(48,'SUBSCRIPTION_RENEW_INSTL','en','Renew Institutional Subscription','Subscription Renewal: Institutional','An institutional subscription has been renewed online for {$journalName} with the following details.<br />\n<br />\nSubscription Type:<br />\n{$subscriptionType}<br />\n<br />\nInstitution:<br />\n{$institutionName}<br />\n{$institutionMailingAddress}<br />\n<br />\nDomain (if provided):<br />\n{$domain}<br />\n<br />\nIP Ranges (if provided):<br />\n{$ipRanges}<br />\n<br />\nContact Person:<br />\n{$subscriberDetails}<br />\n<br />\nMembership Information (if provided):<br />\n{$membership}<br />\n<br />\nTo view or edit this subscription, please use the following URL.<br />\n<br />\nSubscription URL: {$subscriptionUrl}<br />\n'),(49,'REVISED_VERSION_NOTIFY','en','Revised Version Notification','Revised Version Uploaded','<p>Dear {$recipientName},</p><p>The author has uploaded revisions for the submission, <b>{$authorsShort} — {$submissionTitle}</b>. <p>As an assigned editor, we ask that you login and <a href=\"{$submissionUrl}\">view the revisions</a> and make a decision to accept, decline or send the submission for further review.</p><br><br>—<br>This is an automated message from <a href=\"{$journalUrl}\">{$journalName}</a>.'),(50,'STATISTICS_REPORT_NOTIFICATION','en','Statistics Report Notification','Editorial activity for {$month}, {$year}','\n{$recipientName}, <br />\n<br />\nYour journal health report for {$month}, {$year} is now available. Your key stats for this month are below.<br />\n<ul>\n	<li>New submissions this month: {$newSubmissions}</li>\n	<li>Declined submissions this month: {$declinedSubmissions}</li>\n	<li>Accepted submissions this month: {$acceptedSubmissions}</li>\n	<li>Total submissions in the system: {$totalSubmissions}</li>\n</ul>\nLogin to the journal to view more detailed <a href=\"{$editorialStatsLink}\">editorial trends</a> and <a href=\"{$publicationStatsLink}\">published article stats</a>. A full copy of this month\'s editorial trends is attached.<br />\n<br />\nSincerely,<br />\n{$journalSignature}'),(51,'ANNOUNCEMENT','en','New Announcement','{$announcementTitle}','<b>{$announcementTitle}</b><br />\n<br />\n{$announcementSummary}<br />\n<br />\nVisit our website to read the <a href=\"{$announcementUrl}\">full announcement</a>.'),(52,'DISCUSSION_NOTIFICATION_SUBMISSION','en','Discussion (Submission)','A message regarding {$journalName}','Please enter your message.'),(53,'DISCUSSION_NOTIFICATION_REVIEW','en','Discussion (Review)','A message regarding {$journalName}','Please enter your message.'),(54,'DISCUSSION_NOTIFICATION_COPYEDITING','en','Discussion (Copyediting)','A message regarding {$journalName}','Please enter your message.'),(55,'DISCUSSION_NOTIFICATION_PRODUCTION','en','Discussion (Production)','A message regarding {$journalName}','Please enter your message.'),(56,'COPYEDIT_REQUEST','en','Request Copyedit','Submission {$submissionId} is ready to be copyedited for {$contextAcronym}','<p>Dear {$recipientName},</p><p>A new submission is ready to be copyedited:</p><p><a href\"{$submissionUrl}\">{$submissionId} — {$submissionTitle}</a><br />{$journalName}</p><p>Please follow these steps to complete this task:</p><ol><li>Click on the Submission URL below.</li><li>Open any files available under Draft Files and edit the files. Use the Copyediting Discussions area if you need to contact the editor(s) or author(s).</li><li>Save the copyedited file(s) and upload them to the Copyedited panel.</li><li>Use the Copyediting Discussions to notify the editor(s) that all files have been prepared, and that the Production process may begin.</li></ol><p>If you are unable to undertake this work at this time or have any questions, please contact me. Thank you for your contribution to {$journalName}.</p><p>Kind regards,</p>{$signature}'),(57,'EDITOR_ASSIGN_SUBMISSION','en','Assign Editor','You have been assigned as an editor on a submission to {$journalName}','<p>Dear {$recipientName},</p><p>The following submission has been assigned to you to see through the editorial process.</p><p><a href=\"{$submissionUrl}\">{$submissionTitle}</a><br />{$authors}</p><p><b>Abstract</b></p>{$submissionAbstract}<p>If you find the submission to be relevant for {$journalName}, please forward the submission to the review stage by selecting \"Send to Review\" and then assign reviewers by clicking \"Add Reviewer\".</p><p>If the submission is not appropriate for this journal, please decline the submission.</p><p>Thank you in advance.</p><p>Kind regards,</p>{$journalSignature}'),(58,'EDITOR_ASSIGN_REVIEW','en','Assign Editor','You have been assigned as an editor on a submission to {$journalName}','<p>Dear {$recipientName},</p><p>The following submission has been assigned to you to see through the peer review process.</p><p><a href=\"{$submissionUrl}\">{$submissionTitle}</a><br />{$authors}</p><p><b>Abstract</b></p>{$submissionAbstract}<p>Please login to <a href=\"{$submissionUrl}\">view the submission</a> and assign qualified reviewers. You can assign a reviewer by clicking \"Add Reviewer\".</p><p>Thank you in advance.</p><p>Kind regards,</p>{$signature}'),(59,'EDITOR_ASSIGN_PRODUCTION','en','Assign Editor','You have been assigned as an editor on a submission to {$journalName}','<p>Dear {$recipientName},</p><p>The following submission has been assigned to you to see through the production stage.</p><p><a href=\"{$submissionUrl}\">{$submissionTitle}</a><br />{$authors}</p><p><b>Abstract</b></p>{$submissionAbstract}<p>Please login to <a href=\"{$submissionUrl}\">view the submission</a>. Once production-ready files are available, upload them under the <strong>Publication > Galleys</strong> section. Then schedule the work for publication by clicking the <strong>Schedule for Publication</strong> button.</p><p>Thank you in advance.</p><p>Kind regards,</p>{$signature}'),(60,'LAYOUT_REQUEST','en','Ready for Production','Submission {$submissionId} is ready for production at {$contextAcronym}','<p>Dear {$recipientName},</p><p>A new submission is ready for layout editing:</p><p><a href=\"{$submissionUrl}\">{$submissionId} — {$submissionTitle}</a><br />{$journalName}</p><ol><li>Click on the Submission URL above.</li><li>Download the Production Ready files and use them to create the galleys according to the journal\'s standards.</li><li>Upload the galleys to the Publication section of the submission.</li><li>Use the  Production Discussions to notify the editor that the galleys are ready.</li></ol><p>If you are unable to undertake this work at this time or have any questions, please contact me. Thank you for your contribution to this journal.</p><p>Kind regards,</p>{$signature}'),(61,'LAYOUT_COMPLETE','en','Galleys Complete','Galleys Complete','<p>Dear {$recipientName},</p><p>Galleys have now been prepared for the following submission and are ready for final review.</p><p><a href=\"{$submissionUrl}\">{$submissionTitle}</a><br />{$journalName}</p><p>If you have any questions, please contact me.</p><p>Kind regards,</p><p>{$signature}</p>'),(62,'VERSION_CREATED','en','Version Created','A new version was created for {$submissionTitle}','<p>Dear {$recipientName}, </p><p>This is an automated message to inform you that a new version of your submission, {$submissionTitle}, was created. You can view this version from your submission dashboard at the following link:</p><p><a href=\"{$submissionUrl}\">{$submissionTitle}</a></p><hr><p>This is an automatic email sent from <a href=\"{$journalUrl}\">{$journalName}</a>.</p>'),(63,'EDITORIAL_REMINDER','en','Editorial Reminder','Outstanding editorial tasks for {$journalName}','<p>Dear {$recipientName},</p><p>You are currently assigned to {$numberOfSubmissions} submissions in <a href=\"{$journalUrl}\">{$journalName}</a>. The following submissions are <b>waiting for your response</b>.</p>{$outstandingTasks}<p>View all of your assignments in your <a href=\"{$submissionsUrl}\">submission dashboard</a>.</p><p>If you have any questions about your assignments, please contact {$contactName} at {$contactEmail}.</p>'),(64,'SUBMISSION_SAVED_FOR_LATER','en','Submission Saved for Later','Resume your submission to {$journalName}','<p>Dear {$recipientName},</p><p>Your submission details have been saved in our system, but it has not yet been submitted for consideration. You can return to complete your submission at any time by following the link below.</p><p><a href=\"{$submissionWizardUrl}\">{$authorsShort} — {$submissionTitle}</a></p><hr><p>This is an automated email from <a href=\"{$journalUrl}\">{$journalName}</a>.</p>'),(65,'SUBMISSION_NEEDS_EDITOR','en','Submission Needs Editor','A new submission needs an editor to be assigned: {$submissionTitle}','<p>Dear {$recipientName},</p><p>The following submission has been submitted and there is no editor assigned.</p><p><a href=\"{$submissionUrl}\">{$submissionTitle}</a><br />{$authors}</p><p><b>Abstract</b></p>{$submissionAbstract}<p>Please assign an editor who will be responsible for the submission by clicking the title above and assigning an editor under the Participants section.</p><hr><p>This is an automated email from <a href=\"{$journalUrl}\">{$journalName}</a>.</p>'),(66,'PAYMENT_REQUEST_NOTIFICATION','en','Payment Request','Payment Request Notification','<p>Dear {$recipientName},</p><p>Congratulations on the acceptance of your submission, {$submissionTitle}, to {$journalName}. Now that your submission has been accepted, we would like to request payment of the publication fee.</p><p>This fee covers the production costs of bringing your submission to publication. To make the payment, please visit <a href=\"{$queuedPaymentUrl}\">{$queuedPaymentUrl}</a>.</p><p>If you have any questions, please see our <a href=\"{$submissionGuidelinesUrl}\">Submission Guidelines</a></p>'),(67,'ORCID_COLLECT_AUTHOR_ID','en','orcidCollectAuthorId','Submission ORCID','Dear {$recipientName},<br/>\n<br/>\nYou have been listed as an author on a manuscript submission to {$journalName}.<br/>\nTo confirm your authorship, please add your ORCID id to this submission by visiting the link provided below.<br/>\n<br/>\n<a href=\"{$authorOrcidUrl}\"><img id=\"orcid-id-logo\" src=\"https://info.orcid.org/wp-content/uploads/2020/12/ORCIDiD_icon16x16.png\" width=\'16\' height=\'16\' alt=\"ORCID iD icon\" style=\"display: block; margin: 0 .5em 0 0; padding: 0; float: left;\"/>Register or connect your ORCID iD</a><br/>\n<br/>\n<br>\n<a href=\"{$orcidAboutUrl}\">More information about ORCID at {$journalName}</a><br/>\n<br/>\nIf you have any questions, please contact me.<br/>\n<br/>\n{$principalContactSignature}<br/>\n'),(68,'ORCID_REQUEST_AUTHOR_AUTHORIZATION','en','orcidRequestAuthorAuthorization','Requesting ORCID record access','Dear {$recipientName},<br>\n<br>\nYou have been listed as an author on the manuscript submission \"{$submissionTitle}\" to {$journalName}.\n<br>\n<br>\nPlease allow us to add your ORCID id to this submission and also to add the submission to your ORCID profile on publication.<br>\nVisit the link to the official ORCID website, login with your profile and authorize the access by following the instructions.<br>\n<a href=\"{$authorOrcidUrl}\"><img id=\"orcid-id-logo\" src=\"https://info.orcid.org/wp-content/uploads/2020/12/ORCIDiD_icon16x16.png\" width=\'16\' height=\'16\' alt=\"ORCID iD icon\" style=\"display: block; margin: 0 .5em 0 0; padding: 0; float: left;\"/>Register or Connect your ORCID iD</a><br/>\n<br>\n<br>\n<a href=\"{$orcidAboutUrl}\">More about ORCID at {$journalName}</a><br/>\n<br>\nIf you have any questions, please contact me.<br>\n<br>\n{$principalContactSignature}<br>\n'),(69,'MANUAL_PAYMENT_NOTIFICATION','en','Manual Payment Notify','Manual Payment Notification','A manual payment needs to be processed for the journal {$journalName} and the user {senderName} (username &quot;{$senderUsername}&quot;).<br />\n<br />\nThe item being paid for is &quot;{$paymentName}&quot;.<br />\nThe cost is {$paymentAmount} ({$paymentCurrencyCode}).<br />\n<br />\nThis email was generated by Open Journal Systems\' Manual Payment plugin.');
 /*!40000 ALTER TABLE `email_templates_default_data` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -755,13 +822,16 @@ DROP TABLE IF EXISTS `email_templates_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `email_templates_settings` (
+  `email_template_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `email_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  UNIQUE KEY `email_settings_pkey` (`email_id`,`locale`,`setting_name`),
-  KEY `email_settings_email_id` (`email_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`email_template_setting_id`),
+  UNIQUE KEY `email_templates_settings_unique` (`email_id`,`locale`,`setting_name`),
+  KEY `email_templates_settings_email_id` (`email_id`),
+  CONSTRAINT `email_templates_settings_email_id` FOREIGN KEY (`email_id`) REFERENCES `email_templates` (`email_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about custom email templates, including localized properties such as the subject and body.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -784,14 +854,16 @@ CREATE TABLE `event_log` (
   `log_id` bigint(20) NOT NULL AUTO_INCREMENT,
   `assoc_type` bigint(20) NOT NULL,
   `assoc_id` bigint(20) NOT NULL,
-  `user_id` bigint(20) NOT NULL,
+  `user_id` bigint(20) DEFAULT NULL COMMENT 'NULL if it''s system or automated event',
   `date_logged` datetime NOT NULL,
   `event_type` bigint(20) DEFAULT NULL,
   `message` text DEFAULT NULL,
-  `is_translated` smallint(6) DEFAULT NULL,
+  `is_translated` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`log_id`),
-  KEY `event_log_assoc` (`assoc_type`,`assoc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `event_log_user_id` (`user_id`),
+  KEY `event_log_assoc` (`assoc_type`,`assoc_id`),
+  CONSTRAINT `event_log_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A log of all events related to an object like a submission.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -811,14 +883,17 @@ DROP TABLE IF EXISTS `event_log_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `event_log_settings` (
+  `event_log_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `log_id` bigint(20) NOT NULL,
+  `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  UNIQUE KEY `event_log_settings_pkey` (`log_id`,`setting_name`),
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`event_log_setting_id`),
+  UNIQUE KEY `event_log_settings_unique` (`log_id`,`setting_name`,`locale`),
   KEY `event_log_settings_log_id` (`log_id`),
-  KEY `event_log_settings_name_value` (`setting_name`(50),`setting_value`(150))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `event_log_settings_name_value` (`setting_name`(50),`setting_value`(150)),
+  CONSTRAINT `event_log_settings_log_id` FOREIGN KEY (`log_id`) REFERENCES `event_log` (`log_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Data about an event log entry. This data is commonly used to display information about an event to a user.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -828,6 +903,33 @@ CREATE TABLE `event_log_settings` (
 LOCK TABLES `event_log_settings` WRITE;
 /*!40000 ALTER TABLE `event_log_settings` DISABLE KEYS */;
 /*!40000 ALTER TABLE `event_log_settings` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `failed_jobs`
+--
+
+DROP TABLE IF EXISTS `failed_jobs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `failed_jobs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `connection` text NOT NULL,
+  `queue` text NOT NULL,
+  `payload` longtext NOT NULL,
+  `exception` longtext NOT NULL,
+  `failed_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A log of all failed jobs.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `failed_jobs`
+--
+
+LOCK TABLES `failed_jobs` WRITE;
+/*!40000 ALTER TABLE `failed_jobs` DISABLE KEYS */;
+/*!40000 ALTER TABLE `failed_jobs` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -842,7 +944,7 @@ CREATE TABLE `files` (
   `path` varchar(255) NOT NULL,
   `mimetype` varchar(255) NOT NULL,
   PRIMARY KEY (`file_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Records information in the database about files tracked by the system, linking them to the local filesystem.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -870,7 +972,7 @@ CREATE TABLE `filter_groups` (
   `output_type` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`filter_group_id`),
   UNIQUE KEY `filter_groups_symbolic` (`symbolic`)
-) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Filter groups are used to organized filters into named sets, which can be retrieved by the application for invocation.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -879,7 +981,7 @@ CREATE TABLE `filter_groups` (
 
 LOCK TABLES `filter_groups` WRITE;
 /*!40000 ALTER TABLE `filter_groups` DISABLE KEYS */;
-INSERT INTO `filter_groups` VALUES (1,'article=>dc11','plugins.metadata.dc11.articleAdapter.displayName','plugins.metadata.dc11.articleAdapter.description','class::classes.submission.Submission','metadata::plugins.metadata.dc11.schema.Dc11Schema(ARTICLE)'),(2,'article=>doaj-xml','plugins.importexport.doaj.displayName','plugins.importexport.doaj.description','class::classes.submission.Submission[]','xml::schema(plugins/importexport/doaj/doajArticles.xsd)'),(3,'article=>doaj-json','plugins.importexport.doaj.displayName','plugins.importexport.doaj.description','class::classes.submission.Submission','primitive::string'),(4,'issue=>crossref-xml','plugins.importexport.crossref.displayName','plugins.importexport.crossref.description','class::classes.issue.Issue[]','xml::schema(https://www.crossref.org/schemas/crossref4.3.6.xsd)'),(5,'article=>crossref-xml','plugins.importexport.crossref.displayName','plugins.importexport.crossref.description','class::classes.submission.Submission[]','xml::schema(https://www.crossref.org/schemas/crossref4.3.6.xsd)'),(6,'user=>user-xml','plugins.importexport.users.displayName','plugins.importexport.users.description','class::lib.pkp.classes.user.User[]','xml::schema(lib/pkp/plugins/importexport/users/pkp-users.xsd)'),(7,'user-xml=>user','plugins.importexport.users.displayName','plugins.importexport.users.description','xml::schema(lib/pkp/plugins/importexport/users/pkp-users.xsd)','class::classes.users.User[]'),(8,'usergroup=>user-xml','plugins.importexport.users.displayName','plugins.importexport.users.description','class::lib.pkp.classes.security.UserGroup[]','xml::schema(lib/pkp/plugins/importexport/users/pkp-users.xsd)'),(9,'user-xml=>usergroup','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(lib/pkp/plugins/importexport/users/pkp-users.xsd)','class::lib.pkp.classes.security.UserGroup[]'),(10,'article=>pubmed-xml','plugins.importexport.pubmed.displayName','plugins.importexport.pubmed.description','class::classes.submission.Submission[]','xml::dtd'),(11,'article=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.submission.Submission[]','xml::schema(plugins/importexport/native/native.xsd)'),(12,'native-xml=>article','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.submission.Submission[]'),(13,'issue=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.issue.Issue[]','xml::schema(plugins/importexport/native/native.xsd)'),(14,'native-xml=>issue','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.issue.Issue[]'),(15,'issuegalley=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.issue.IssueGalley[]','xml::schema(plugins/importexport/native/native.xsd)'),(16,'native-xml=>issuegalley','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.issue.IssueGalley[]'),(17,'author=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.article.Author[]','xml::schema(plugins/importexport/native/native.xsd)'),(18,'native-xml=>author','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.article.Author[]'),(19,'SubmissionFile=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::lib.pkp.classes.submission.SubmissionFile','xml::schema(plugins/importexport/native/native.xsd)'),(20,'native-xml=>SubmissionFile','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::lib.pkp.classes.submission.SubmissionFile'),(21,'article-galley=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.article.ArticleGalley','xml::schema(plugins/importexport/native/native.xsd)'),(22,'native-xml=>ArticleGalley','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.article.ArticleGalley[]'),(23,'publication=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.publication.Publication','xml::schema(plugins/importexport/native/native.xsd)'),(24,'native-xml=>Publication','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.publication.Publication'),(25,'issue=>datacite-xml','plugins.importexport.datacite.displayName','plugins.importexport.datacite.description','class::classes.issue.Issue','xml::schema(http://schema.datacite.org/meta/kernel-4/metadata.xsd)'),(26,'article=>datacite-xml','plugins.importexport.datacite.displayName','plugins.importexport.datacite.description','class::classes.submission.Submission','xml::schema(http://schema.datacite.org/meta/kernel-4/metadata.xsd)'),(27,'galley=>datacite-xml','plugins.importexport.datacite.displayName','plugins.importexport.datacite.description','class::classes.article.ArticleGalley','xml::schema(http://schema.datacite.org/meta/kernel-4/metadata.xsd)');
+INSERT INTO `filter_groups` VALUES (1,'issue=>crossref-xml','plugins.importexport.crossref.displayName','plugins.importexport.crossref.description','class::classes.issue.Issue[]','xml::schema(https://www.crossref.org/schemas/crossref5.3.1.xsd)'),(2,'article=>crossref-xml','plugins.importexport.crossref.displayName','plugins.importexport.crossref.description','class::classes.submission.Submission[]','xml::schema(https://www.crossref.org/schemas/crossref5.3.1.xsd)'),(3,'issue=>datacite-xml','plugins.importexport.datacite.displayName','plugins.importexport.datacite.description','class::classes.issue.Issue','xml::schema(http://schema.datacite.org/meta/kernel-4/metadata.xsd)'),(4,'article=>datacite-xml','plugins.importexport.datacite.displayName','plugins.importexport.datacite.description','class::classes.submission.Submission','xml::schema(http://schema.datacite.org/meta/kernel-4/metadata.xsd)'),(5,'galley=>datacite-xml','plugins.importexport.datacite.displayName','plugins.importexport.datacite.description','class::lib.pkp.classes.galley.Galley','xml::schema(http://schema.datacite.org/meta/kernel-4/metadata.xsd)'),(6,'article=>dc11','plugins.metadata.dc11.articleAdapter.displayName','plugins.metadata.dc11.articleAdapter.description','class::classes.submission.Submission','metadata::APP\\plugins\\metadata\\dc11\\schema\\Dc11Schema(ARTICLE)'),(7,'article=>doaj-xml','plugins.importexport.doaj.displayName','plugins.importexport.doaj.description','class::classes.submission.Submission[]','xml::schema(plugins/importexport/doaj/doajArticles.xsd)'),(8,'article=>doaj-json','plugins.importexport.doaj.displayName','plugins.importexport.doaj.description','class::classes.submission.Submission','primitive::string'),(9,'user=>user-xml','plugins.importexport.users.displayName','plugins.importexport.users.description','class::lib.pkp.classes.user.User[]','xml::schema(lib/pkp/plugins/importexport/users/pkp-users.xsd)'),(10,'user-xml=>user','plugins.importexport.users.displayName','plugins.importexport.users.description','xml::schema(lib/pkp/plugins/importexport/users/pkp-users.xsd)','class::classes.users.User[]'),(11,'usergroup=>user-xml','plugins.importexport.users.displayName','plugins.importexport.users.description','class::lib.pkp.classes.security.UserGroup[]','xml::schema(lib/pkp/plugins/importexport/users/pkp-users.xsd)'),(12,'user-xml=>usergroup','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(lib/pkp/plugins/importexport/users/pkp-users.xsd)','class::lib.pkp.classes.security.UserGroup[]'),(13,'article=>pubmed-xml','plugins.importexport.pubmed.displayName','plugins.importexport.pubmed.description','class::classes.submission.Submission[]','xml::dtd'),(14,'article=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.submission.Submission[]','xml::schema(plugins/importexport/native/native.xsd)'),(15,'native-xml=>article','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.submission.Submission[]'),(16,'issue=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.issue.Issue[]','xml::schema(plugins/importexport/native/native.xsd)'),(17,'native-xml=>issue','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.issue.Issue[]'),(18,'issuegalley=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.issue.IssueGalley[]','xml::schema(plugins/importexport/native/native.xsd)'),(19,'native-xml=>issuegalley','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.issue.IssueGalley[]'),(20,'author=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.author.Author[]','xml::schema(plugins/importexport/native/native.xsd)'),(21,'native-xml=>author','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.author.Author[]'),(22,'SubmissionFile=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::lib.pkp.classes.submissionFile.SubmissionFile','xml::schema(plugins/importexport/native/native.xsd)'),(23,'native-xml=>SubmissionFile','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::lib.pkp.classes.submissionFile.SubmissionFile[]'),(24,'article-galley=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::lib.pkp.classes.galley.Galley','xml::schema(plugins/importexport/native/native.xsd)'),(25,'native-xml=>ArticleGalley','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::lib.pkp.classes.galley.Galley[]'),(26,'publication=>native-xml','plugins.importexport.native.displayName','plugins.importexport.native.description','class::classes.publication.Publication','xml::schema(plugins/importexport/native/native.xsd)'),(27,'native-xml=>Publication','plugins.importexport.native.displayName','plugins.importexport.native.description','xml::schema(plugins/importexport/native/native.xsd)','class::classes.publication.Publication[]');
 /*!40000 ALTER TABLE `filter_groups` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -891,14 +993,17 @@ DROP TABLE IF EXISTS `filter_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `filter_settings` (
+  `filter_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `filter_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `filter_settings_pkey` (`filter_id`,`locale`,`setting_name`),
-  KEY `filter_settings_id` (`filter_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`filter_setting_id`),
+  UNIQUE KEY `filter_settings_unique` (`filter_id`,`locale`,`setting_name`),
+  KEY `filter_settings_id` (`filter_id`),
+  CONSTRAINT `filter_settings_filter_id_foreign` FOREIGN KEY (`filter_id`) REFERENCES `filters` (`filter_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about filters, including localized content.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -926,8 +1031,10 @@ CREATE TABLE `filters` (
   `is_template` smallint(6) NOT NULL DEFAULT 0,
   `parent_filter_id` bigint(20) NOT NULL DEFAULT 0,
   `seq` bigint(20) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`filter_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`filter_id`),
+  KEY `filters_filter_group_id` (`filter_group_id`),
+  CONSTRAINT `filters_filter_group_id_foreign` FOREIGN KEY (`filter_group_id`) REFERENCES `filter_groups` (`filter_group_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Filters represent a transformation of a supported piece of data from one form to another, such as a PHP object into an XML document.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -936,7 +1043,7 @@ CREATE TABLE `filters` (
 
 LOCK TABLES `filters` WRITE;
 /*!40000 ALTER TABLE `filters` DISABLE KEYS */;
-INSERT INTO `filters` VALUES (1,1,0,'Extract metadata from a(n) Submission','plugins.metadata.dc11.filter.Dc11SchemaArticleAdapter',0,0,0),(2,2,0,'DOAJ XML export','plugins.importexport.doaj.filter.DOAJXmlFilter',0,0,0),(3,3,0,'DOAJ JSON export','plugins.importexport.doaj.filter.DOAJJsonFilter',0,0,0),(4,4,0,'Crossref XML issue export','plugins.importexport.crossref.filter.IssueCrossrefXmlFilter',0,0,0),(5,5,0,'Crossref XML issue export','plugins.importexport.crossref.filter.ArticleCrossrefXmlFilter',0,0,0),(6,6,0,'User XML user export','lib.pkp.plugins.importexport.users.filter.PKPUserUserXmlFilter',0,0,0),(7,7,0,'User XML user import','lib.pkp.plugins.importexport.users.filter.UserXmlPKPUserFilter',0,0,0),(8,8,0,'Native XML user group export','lib.pkp.plugins.importexport.users.filter.UserGroupNativeXmlFilter',0,0,0),(9,9,0,'Native XML user group import','lib.pkp.plugins.importexport.users.filter.NativeXmlUserGroupFilter',0,0,0),(10,10,0,'ArticlePubMedXmlFilter','plugins.importexport.pubmed.filter.ArticlePubMedXmlFilter',0,0,0),(11,11,0,'Native XML submission export','plugins.importexport.native.filter.ArticleNativeXmlFilter',0,0,0),(12,12,0,'Native XML submission import','plugins.importexport.native.filter.NativeXmlArticleFilter',0,0,0),(13,13,0,'Native XML issue export','plugins.importexport.native.filter.IssueNativeXmlFilter',0,0,0),(14,14,0,'Native XML issue import','plugins.importexport.native.filter.NativeXmlIssueFilter',0,0,0),(15,15,0,'Native XML issue galley export','plugins.importexport.native.filter.IssueGalleyNativeXmlFilter',0,0,0),(16,16,0,'Native XML issue galley import','plugins.importexport.native.filter.NativeXmlIssueGalleyFilter',0,0,0),(17,17,0,'Native XML author export','plugins.importexport.native.filter.AuthorNativeXmlFilter',0,0,0),(18,18,0,'Native XML author import','plugins.importexport.native.filter.NativeXmlAuthorFilter',0,0,0),(19,20,0,'Native XML submission file import','plugins.importexport.native.filter.NativeXmlArticleFileFilter',0,0,0),(20,19,0,'Native XML submission file export','lib.pkp.plugins.importexport.native.filter.SubmissionFileNativeXmlFilter',0,0,0),(21,21,0,'Native XML representation export','plugins.importexport.native.filter.ArticleGalleyNativeXmlFilter',0,0,0),(22,22,0,'Native XML representation import','plugins.importexport.native.filter.NativeXmlArticleGalleyFilter',0,0,0),(23,23,0,'Native XML Publication export','plugins.importexport.native.filter.PublicationNativeXmlFilter',0,0,0),(24,24,0,'Native XML publication import','plugins.importexport.native.filter.NativeXmlPublicationFilter',0,0,0),(25,25,0,'DataCite XML export','plugins.importexport.datacite.filter.DataciteXmlFilter',0,0,0),(26,26,0,'DataCite XML export','plugins.importexport.datacite.filter.DataciteXmlFilter',0,0,0),(27,27,0,'DataCite XML export','plugins.importexport.datacite.filter.DataciteXmlFilter',0,0,0);
+INSERT INTO `filters` VALUES (1,1,0,'Crossref XML issue export','APP\\plugins\\generic\\crossref\\filter\\IssueCrossrefXmlFilter',0,0,0),(2,2,0,'Crossref XML article export','APP\\plugins\\generic\\crossref\\filter\\ArticleCrossrefXmlFilter',0,0,0),(3,3,0,'DataCite XML export','APP\\plugins\\generic\\datacite\\filter\\DataciteXmlFilter',0,0,0),(4,4,0,'DataCite XML export','APP\\plugins\\generic\\datacite\\filter\\DataciteXmlFilter',0,0,0),(5,5,0,'DataCite XML export','APP\\plugins\\generic\\datacite\\filter\\DataciteXmlFilter',0,0,0),(6,6,0,'Extract metadata from a(n) Submission','APP\\plugins\\metadata\\dc11\\filter\\Dc11SchemaArticleAdapter',0,0,0),(7,7,0,'DOAJ XML export','APP\\plugins\\importexport\\doaj\\filter\\DOAJXmlFilter',0,0,0),(8,8,0,'DOAJ JSON export','APP\\plugins\\importexport\\doaj\\filter\\DOAJJsonFilter',0,0,0),(9,9,0,'User XML user export','PKP\\plugins\\importexport\\users\\filter\\PKPUserUserXmlFilter',0,0,0),(10,10,0,'User XML user import','PKP\\plugins\\importexport\\users\\filter\\UserXmlPKPUserFilter',0,0,0),(11,11,0,'Native XML user group export','PKP\\plugins\\importexport\\users\\filter\\UserGroupNativeXmlFilter',0,0,0),(12,12,0,'Native XML user group import','PKP\\plugins\\importexport\\users\\filter\\NativeXmlUserGroupFilter',0,0,0),(13,13,0,'APP\\plugins\\importexport\\pubmed\\filter\\ArticlePubMedXmlFilter','APP\\plugins\\importexport\\pubmed\\filter\\ArticlePubMedXmlFilter',0,0,0),(14,14,0,'Native XML submission export','APP\\plugins\\importexport\\native\\filter\\ArticleNativeXmlFilter',0,0,0),(15,15,0,'Native XML submission import','APP\\plugins\\importexport\\native\\filter\\NativeXmlArticleFilter',0,0,0),(16,16,0,'Native XML issue export','APP\\plugins\\importexport\\native\\filter\\IssueNativeXmlFilter',0,0,0),(17,17,0,'Native XML issue import','APP\\plugins\\importexport\\native\\filter\\NativeXmlIssueFilter',0,0,0),(18,18,0,'Native XML issue galley export','APP\\plugins\\importexport\\native\\filter\\IssueGalleyNativeXmlFilter',0,0,0),(19,19,0,'Native XML issue galley import','APP\\plugins\\importexport\\native\\filter\\NativeXmlIssueGalleyFilter',0,0,0),(20,20,0,'Native XML author export','APP\\plugins\\importexport\\native\\filter\\AuthorNativeXmlFilter',0,0,0),(21,21,0,'Native XML author import','APP\\plugins\\importexport\\native\\filter\\NativeXmlAuthorFilter',0,0,0),(22,23,0,'Native XML submission file import','APP\\plugins\\importexport\\native\\filter\\NativeXmlArticleFileFilter',0,0,0),(23,22,0,'Native XML submission file export','PKP\\plugins\\importexport\\native\\filter\\SubmissionFileNativeXmlFilter',0,0,0),(24,24,0,'Native XML representation export','APP\\plugins\\importexport\\native\\filter\\ArticleGalleyNativeXmlFilter',0,0,0),(25,25,0,'Native XML representation import','APP\\plugins\\importexport\\native\\filter\\NativeXmlArticleGalleyFilter',0,0,0),(26,26,0,'Native XML Publication export','APP\\plugins\\importexport\\native\\filter\\PublicationNativeXmlFilter',0,0,0),(27,27,0,'Native XML publication import','APP\\plugins\\importexport\\native\\filter\\NativeXmlPublicationFilter',0,0,0);
 /*!40000 ALTER TABLE `filters` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -948,14 +1055,17 @@ DROP TABLE IF EXISTS `genre_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `genre_settings` (
+  `genre_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `genre_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  UNIQUE KEY `genre_settings_pkey` (`genre_id`,`locale`,`setting_name`),
-  KEY `genre_settings_genre_id` (`genre_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`genre_setting_id`),
+  UNIQUE KEY `genre_settings_unique` (`genre_id`,`locale`,`setting_name`),
+  KEY `genre_settings_genre_id` (`genre_id`),
+  CONSTRAINT `genre_settings_genre_id_foreign` FOREIGN KEY (`genre_id`) REFERENCES `genres` (`genre_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about file genres, including localized properties such as the genre name.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -982,9 +1092,12 @@ CREATE TABLE `genres` (
   `category` bigint(20) NOT NULL DEFAULT 1,
   `dependent` smallint(6) NOT NULL DEFAULT 0,
   `supplementary` smallint(6) NOT NULL DEFAULT 0,
+  `required` smallint(6) NOT NULL DEFAULT 0 COMMENT 'Whether or not at least one file of this genre is required for a new submission.',
   `entry_key` varchar(30) DEFAULT NULL,
-  PRIMARY KEY (`genre_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`genre_id`),
+  KEY `genres_context_id` (`context_id`),
+  CONSTRAINT `genres_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='The types of submission files configured for each context, such as Article Text, Data Set, Transcript, etc.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -997,32 +1110,62 @@ LOCK TABLES `genres` WRITE;
 UNLOCK TABLES;
 
 --
--- Table structure for table `institutional_subscription_ip`
+-- Table structure for table `institution_ip`
 --
 
-DROP TABLE IF EXISTS `institutional_subscription_ip`;
+DROP TABLE IF EXISTS `institution_ip`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `institutional_subscription_ip` (
-  `institutional_subscription_ip_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `subscription_id` bigint(20) NOT NULL,
+CREATE TABLE `institution_ip` (
+  `institution_ip_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `institution_id` bigint(20) NOT NULL,
   `ip_string` varchar(40) NOT NULL,
   `ip_start` bigint(20) NOT NULL,
   `ip_end` bigint(20) DEFAULT NULL,
-  PRIMARY KEY (`institutional_subscription_ip_id`),
-  KEY `institutional_subscription_ip_subscription_id` (`subscription_id`),
-  KEY `institutional_subscription_ip_start` (`ip_start`),
-  KEY `institutional_subscription_ip_end` (`ip_end`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`institution_ip_id`),
+  KEY `institution_ip_institution_id` (`institution_id`),
+  KEY `institution_ip_start` (`ip_start`),
+  KEY `institution_ip_end` (`ip_end`),
+  CONSTRAINT `institution_ip_institution_id_foreign` FOREIGN KEY (`institution_id`) REFERENCES `institutions` (`institution_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Records IP address ranges and associates them with institutions.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `institutional_subscription_ip`
+-- Dumping data for table `institution_ip`
 --
 
-LOCK TABLES `institutional_subscription_ip` WRITE;
-/*!40000 ALTER TABLE `institutional_subscription_ip` DISABLE KEYS */;
-/*!40000 ALTER TABLE `institutional_subscription_ip` ENABLE KEYS */;
+LOCK TABLES `institution_ip` WRITE;
+/*!40000 ALTER TABLE `institution_ip` DISABLE KEYS */;
+/*!40000 ALTER TABLE `institution_ip` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `institution_settings`
+--
+
+DROP TABLE IF EXISTS `institution_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `institution_settings` (
+  `institution_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `institution_id` bigint(20) NOT NULL,
+  `locale` varchar(14) NOT NULL DEFAULT '',
+  `setting_name` varchar(255) NOT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`institution_setting_id`),
+  UNIQUE KEY `institution_settings_unique` (`institution_id`,`locale`,`setting_name`),
+  KEY `institution_settings_institution_id` (`institution_id`),
+  CONSTRAINT `institution_settings_institution_id_foreign` FOREIGN KEY (`institution_id`) REFERENCES `institutions` (`institution_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about institutions, including localized properties like names.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `institution_settings`
+--
+
+LOCK TABLES `institution_settings` WRITE;
+/*!40000 ALTER TABLE `institution_settings` DISABLE KEYS */;
+/*!40000 ALTER TABLE `institution_settings` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -1035,13 +1178,16 @@ DROP TABLE IF EXISTS `institutional_subscriptions`;
 CREATE TABLE `institutional_subscriptions` (
   `institutional_subscription_id` bigint(20) NOT NULL AUTO_INCREMENT,
   `subscription_id` bigint(20) NOT NULL,
-  `institution_name` varchar(255) NOT NULL,
+  `institution_id` bigint(20) NOT NULL,
   `mailing_address` varchar(255) DEFAULT NULL,
   `domain` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`institutional_subscription_id`),
   KEY `institutional_subscriptions_subscription_id` (`subscription_id`),
-  KEY `institutional_subscriptions_domain` (`domain`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `institutional_subscriptions_institution_id` (`institution_id`),
+  KEY `institutional_subscriptions_domain` (`domain`),
+  CONSTRAINT `institutional_subscriptions_institution_id_foreign` FOREIGN KEY (`institution_id`) REFERENCES `institutions` (`institution_id`) ON DELETE CASCADE,
+  CONSTRAINT `institutional_subscriptions_subscription_id` FOREIGN KEY (`subscription_id`) REFERENCES `subscriptions` (`subscription_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A list of institutional subscriptions, linking a subscription with an institution.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1051,6 +1197,33 @@ CREATE TABLE `institutional_subscriptions` (
 LOCK TABLES `institutional_subscriptions` WRITE;
 /*!40000 ALTER TABLE `institutional_subscriptions` DISABLE KEYS */;
 /*!40000 ALTER TABLE `institutional_subscriptions` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `institutions`
+--
+
+DROP TABLE IF EXISTS `institutions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `institutions` (
+  `institution_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `context_id` bigint(20) NOT NULL,
+  `ror` varchar(255) DEFAULT NULL COMMENT 'ROR (Research Organization Registry) ID',
+  `deleted_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`institution_id`),
+  KEY `institutions_context_id` (`context_id`),
+  CONSTRAINT `institutions_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Institutions for statistics and subscriptions.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `institutions`
+--
+
+LOCK TABLES `institutions` WRITE;
+/*!40000 ALTER TABLE `institutions` DISABLE KEYS */;
+/*!40000 ALTER TABLE `institutions` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -1071,8 +1244,9 @@ CREATE TABLE `issue_files` (
   `date_uploaded` datetime NOT NULL,
   `date_modified` datetime NOT NULL,
   PRIMARY KEY (`file_id`),
-  KEY `issue_files_issue_id` (`issue_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `issue_files_issue_id` (`issue_id`),
+  CONSTRAINT `issue_files_issue_id` FOREIGN KEY (`issue_id`) REFERENCES `issues` (`issue_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Relationships between issues and issue files, such as cover images.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1092,14 +1266,17 @@ DROP TABLE IF EXISTS `issue_galley_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `issue_galley_settings` (
+  `issue_galley_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `galley_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  UNIQUE KEY `issue_galley_settings_pkey` (`galley_id`,`locale`,`setting_name`),
-  KEY `issue_galley_settings_galley_id` (`galley_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`issue_galley_setting_id`),
+  UNIQUE KEY `issue_galley_settings_unique` (`galley_id`,`locale`,`setting_name`),
+  KEY `issue_galley_settings_galley_id` (`galley_id`),
+  CONSTRAINT `issue_galleys_settings_galley_id` FOREIGN KEY (`galley_id`) REFERENCES `issue_galleys` (`galley_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about issue galleys, including localized content such as labels.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1123,13 +1300,16 @@ CREATE TABLE `issue_galleys` (
   `locale` varchar(14) DEFAULT NULL,
   `issue_id` bigint(20) NOT NULL,
   `file_id` bigint(20) NOT NULL,
-  `label` varchar(32) DEFAULT NULL,
+  `label` varchar(255) DEFAULT NULL,
   `seq` double(8,2) NOT NULL DEFAULT 0.00,
   `url_path` varchar(64) DEFAULT NULL,
   PRIMARY KEY (`galley_id`),
   KEY `issue_galleys_issue_id` (`issue_id`),
-  KEY `issue_galleys_url_path` (`url_path`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `issue_galleys_file_id` (`file_id`),
+  KEY `issue_galleys_url_path` (`url_path`),
+  CONSTRAINT `issue_galleys_file_id` FOREIGN KEY (`file_id`) REFERENCES `issue_files` (`file_id`) ON DELETE CASCADE,
+  CONSTRAINT `issue_galleys_issue_id` FOREIGN KEY (`issue_id`) REFERENCES `issues` (`issue_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Issue galleys are representations of the entire issue in a single file, such as a complete issue PDF.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1149,15 +1329,17 @@ DROP TABLE IF EXISTS `issue_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `issue_settings` (
+  `issue_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `issue_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `issue_settings_pkey` (`issue_id`,`locale`,`setting_name`),
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`issue_setting_id`),
+  UNIQUE KEY `issue_settings_unique` (`issue_id`,`locale`,`setting_name`),
   KEY `issue_settings_issue_id` (`issue_id`),
-  KEY `issue_settings_name_value` (`setting_name`(50),`setting_value`(150))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `issue_settings_name_value` (`setting_name`(50),`setting_value`(150)),
+  CONSTRAINT `issue_settings_issue_id` FOREIGN KEY (`issue_id`) REFERENCES `issues` (`issue_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about issues, including localized properties such as issue titles.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1183,7 +1365,6 @@ CREATE TABLE `issues` (
   `number` varchar(40) DEFAULT NULL,
   `year` smallint(6) DEFAULT NULL,
   `published` smallint(6) NOT NULL DEFAULT 0,
-  `current` smallint(6) NOT NULL DEFAULT 0,
   `date_published` datetime DEFAULT NULL,
   `date_notified` datetime DEFAULT NULL,
   `last_modified` datetime DEFAULT NULL,
@@ -1196,10 +1377,14 @@ CREATE TABLE `issues` (
   `style_file_name` varchar(90) DEFAULT NULL,
   `original_style_file_name` varchar(255) DEFAULT NULL,
   `url_path` varchar(64) DEFAULT NULL,
+  `doi_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`issue_id`),
   KEY `issues_journal_id` (`journal_id`),
-  KEY `issues_url_path` (`url_path`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `issues_doi_id` (`doi_id`),
+  KEY `issues_url_path` (`url_path`),
+  CONSTRAINT `issues_doi_id_foreign` FOREIGN KEY (`doi_id`) REFERENCES `dois` (`doi_id`) ON DELETE SET NULL,
+  CONSTRAINT `issues_journal_id` FOREIGN KEY (`journal_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A list of all journal issues, with identifying information like year, number, volume, etc.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1212,28 +1397,34 @@ LOCK TABLES `issues` WRITE;
 UNLOCK TABLES;
 
 --
--- Table structure for table `item_views`
+-- Table structure for table `job_batches`
 --
 
-DROP TABLE IF EXISTS `item_views`;
+DROP TABLE IF EXISTS `job_batches`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `item_views` (
-  `assoc_type` bigint(20) NOT NULL,
-  `assoc_id` bigint(20) NOT NULL,
-  `user_id` bigint(20) DEFAULT NULL,
-  `date_last_viewed` datetime DEFAULT NULL,
-  UNIQUE KEY `item_views_pkey` (`assoc_type`,`assoc_id`,`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+CREATE TABLE `job_batches` (
+  `id` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `total_jobs` int(11) NOT NULL,
+  `pending_jobs` int(11) NOT NULL,
+  `failed_jobs` int(11) NOT NULL,
+  `failed_job_ids` text NOT NULL,
+  `options` mediumtext DEFAULT NULL,
+  `cancelled_at` int(11) DEFAULT NULL,
+  `created_at` int(11) NOT NULL,
+  `finished_at` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Job batches allow jobs to be collected into groups for managed processing.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `item_views`
+-- Dumping data for table `job_batches`
 --
 
-LOCK TABLES `item_views` WRITE;
-/*!40000 ALTER TABLE `item_views` DISABLE KEYS */;
-/*!40000 ALTER TABLE `item_views` ENABLE KEYS */;
+LOCK TABLES `job_batches` WRITE;
+/*!40000 ALTER TABLE `job_batches` DISABLE KEYS */;
+/*!40000 ALTER TABLE `job_batches` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -1253,7 +1444,7 @@ CREATE TABLE `jobs` (
   `created_at` int(10) unsigned NOT NULL,
   PRIMARY KEY (`id`),
   KEY `jobs_queue_reserved_at_index` (`queue`,`reserved_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='All pending or in-progress jobs.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1273,14 +1464,16 @@ DROP TABLE IF EXISTS `journal_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `journal_settings` (
+  `journal_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `journal_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
   `setting_value` mediumtext DEFAULT NULL,
-  `setting_type` varchar(6) DEFAULT NULL,
-  UNIQUE KEY `journal_settings_pkey` (`journal_id`,`locale`,`setting_name`),
-  KEY `journal_settings_journal_id` (`journal_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`journal_setting_id`),
+  UNIQUE KEY `journal_settings_unique` (`journal_id`,`locale`,`setting_name`),
+  KEY `journal_settings_journal_id` (`journal_id`),
+  CONSTRAINT `journal_settings_journal_id` FOREIGN KEY (`journal_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about journals, including localized properties like policies.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1305,9 +1498,12 @@ CREATE TABLE `journals` (
   `seq` double(8,2) NOT NULL DEFAULT 0.00 COMMENT 'Used to order lists of journals',
   `primary_locale` varchar(14) NOT NULL,
   `enabled` smallint(6) NOT NULL DEFAULT 1 COMMENT 'Controls whether or not the journal is considered "live" and will appear on the website. (Note that disabled journals may still be accessible, but only if the user knows the URL.)',
+  `current_issue_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`journal_id`),
-  UNIQUE KEY `journals_path` (`path`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  UNIQUE KEY `journals_path` (`path`),
+  KEY `journals_issue_id` (`current_issue_id`),
+  CONSTRAINT `journals_current_issue_id_foreign` FOREIGN KEY (`current_issue_id`) REFERENCES `issues` (`issue_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A list of all journals in the installation of OJS.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1327,14 +1523,17 @@ DROP TABLE IF EXISTS `library_file_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `library_file_settings` (
+  `library_file_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `file_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object|date)',
-  UNIQUE KEY `library_file_settings_pkey` (`file_id`,`locale`,`setting_name`),
-  KEY `library_file_settings_id` (`file_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`library_file_setting_id`),
+  UNIQUE KEY `library_file_settings_unique` (`file_id`,`locale`,`setting_name`),
+  KEY `library_file_settings_file_id` (`file_id`),
+  CONSTRAINT `library_file_settings_file_id_foreign` FOREIGN KEY (`file_id`) REFERENCES `library_files` (`file_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about library files, including localized content such as names.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1363,12 +1562,14 @@ CREATE TABLE `library_files` (
   `type` smallint(6) NOT NULL,
   `date_uploaded` datetime NOT NULL,
   `date_modified` datetime NOT NULL,
-  `submission_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) DEFAULT NULL,
   `public_access` smallint(6) DEFAULT 0,
   PRIMARY KEY (`file_id`),
   KEY `library_files_context_id` (`context_id`),
-  KEY `library_files_submission_id` (`submission_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `library_files_submission_id` (`submission_id`),
+  CONSTRAINT `library_files_context_id` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `library_files_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Library files can be associated with the context (press/server/journal) or with individual submissions, and are typically forms, agreements, and other administrative documents that are not part of the scholarly content.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1381,100 +1582,333 @@ LOCK TABLES `library_files` WRITE;
 UNLOCK TABLES;
 
 --
--- Table structure for table `metadata_description_settings`
+-- Table structure for table `metrics_context`
 --
 
-DROP TABLE IF EXISTS `metadata_description_settings`;
+DROP TABLE IF EXISTS `metrics_context`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `metadata_description_settings` (
-  `metadata_description_id` bigint(20) NOT NULL,
-  `locale` varchar(14) NOT NULL DEFAULT '',
-  `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `metadata_descripton_settings_pkey` (`metadata_description_id`,`locale`,`setting_name`),
-  KEY `metadata_description_settings_id` (`metadata_description_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `metadata_description_settings`
---
-
-LOCK TABLES `metadata_description_settings` WRITE;
-/*!40000 ALTER TABLE `metadata_description_settings` DISABLE KEYS */;
-/*!40000 ALTER TABLE `metadata_description_settings` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `metadata_descriptions`
---
-
-DROP TABLE IF EXISTS `metadata_descriptions`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `metadata_descriptions` (
-  `metadata_description_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `assoc_type` bigint(20) NOT NULL DEFAULT 0,
-  `assoc_id` bigint(20) NOT NULL DEFAULT 0,
-  `schema_namespace` varchar(255) NOT NULL,
-  `schema_name` varchar(255) NOT NULL,
-  `display_name` varchar(255) DEFAULT NULL,
-  `seq` bigint(20) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`metadata_description_id`),
-  KEY `metadata_descriptions_assoc` (`assoc_type`,`assoc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `metadata_descriptions`
---
-
-LOCK TABLES `metadata_descriptions` WRITE;
-/*!40000 ALTER TABLE `metadata_descriptions` DISABLE KEYS */;
-/*!40000 ALTER TABLE `metadata_descriptions` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `metrics`
---
-
-DROP TABLE IF EXISTS `metrics`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `metrics` (
-  `load_id` varchar(255) NOT NULL,
+CREATE TABLE `metrics_context` (
+  `metrics_context_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `load_id` varchar(50) NOT NULL,
   `context_id` bigint(20) NOT NULL,
-  `pkp_section_id` bigint(20) DEFAULT NULL,
-  `assoc_object_type` bigint(20) DEFAULT NULL,
-  `assoc_object_id` bigint(20) DEFAULT NULL,
-  `submission_id` bigint(20) DEFAULT NULL,
-  `representation_id` bigint(20) DEFAULT NULL,
-  `assoc_type` bigint(20) NOT NULL,
-  `assoc_id` bigint(20) NOT NULL,
-  `day` varchar(8) DEFAULT NULL,
-  `month` varchar(6) DEFAULT NULL,
-  `file_type` smallint(6) DEFAULT NULL,
-  `country_id` varchar(2) DEFAULT NULL,
-  `region` varchar(2) DEFAULT NULL,
-  `city` varchar(255) DEFAULT NULL,
-  `metric_type` varchar(255) NOT NULL,
+  `date` date NOT NULL,
   `metric` int(11) NOT NULL,
-  KEY `metrics_load_id` (`load_id`),
-  KEY `metrics_metric_type_context_id` (`metric_type`,`context_id`),
-  KEY `metrics_metric_type_submission_id_assoc_type` (`metric_type`,`submission_id`,`assoc_type`),
-  KEY `metrics_metric_type_submission_id_assoc` (`metric_type`,`context_id`,`assoc_type`,`assoc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`metrics_context_id`),
+  KEY `metrics_context_load_id` (`load_id`),
+  KEY `metrics_context_context_id` (`context_id`),
+  CONSTRAINT `metrics_context_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Daily statistics for views of the homepage.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `metrics`
+-- Dumping data for table `metrics_context`
 --
 
-LOCK TABLES `metrics` WRITE;
-/*!40000 ALTER TABLE `metrics` DISABLE KEYS */;
-/*!40000 ALTER TABLE `metrics` ENABLE KEYS */;
+LOCK TABLES `metrics_context` WRITE;
+/*!40000 ALTER TABLE `metrics_context` DISABLE KEYS */;
+/*!40000 ALTER TABLE `metrics_context` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `metrics_counter_submission_daily`
+--
+
+DROP TABLE IF EXISTS `metrics_counter_submission_daily`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `metrics_counter_submission_daily` (
+  `metrics_counter_submission_daily_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `load_id` varchar(50) NOT NULL,
+  `context_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) NOT NULL,
+  `date` date NOT NULL,
+  `metric_investigations` int(11) NOT NULL,
+  `metric_investigations_unique` int(11) NOT NULL,
+  `metric_requests` int(11) NOT NULL,
+  `metric_requests_unique` int(11) NOT NULL,
+  PRIMARY KEY (`metrics_counter_submission_daily_id`),
+  UNIQUE KEY `msd_uc_load_id_context_id_submission_id_date` (`load_id`,`context_id`,`submission_id`,`date`),
+  KEY `msd_load_id` (`load_id`),
+  KEY `metrics_counter_submission_daily_context_id` (`context_id`),
+  KEY `metrics_counter_submission_daily_submission_id` (`submission_id`),
+  KEY `msd_context_id_submission_id` (`context_id`,`submission_id`),
+  CONSTRAINT `msd_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `msd_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Daily statistics matching the COUNTER R5 protocol for views and downloads of published submissions and galleys.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `metrics_counter_submission_daily`
+--
+
+LOCK TABLES `metrics_counter_submission_daily` WRITE;
+/*!40000 ALTER TABLE `metrics_counter_submission_daily` DISABLE KEYS */;
+/*!40000 ALTER TABLE `metrics_counter_submission_daily` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `metrics_counter_submission_institution_daily`
+--
+
+DROP TABLE IF EXISTS `metrics_counter_submission_institution_daily`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `metrics_counter_submission_institution_daily` (
+  `metrics_counter_submission_institution_daily_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `load_id` varchar(50) NOT NULL,
+  `context_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) NOT NULL,
+  `institution_id` bigint(20) NOT NULL,
+  `date` date NOT NULL,
+  `metric_investigations` int(11) NOT NULL,
+  `metric_investigations_unique` int(11) NOT NULL,
+  `metric_requests` int(11) NOT NULL,
+  `metric_requests_unique` int(11) NOT NULL,
+  PRIMARY KEY (`metrics_counter_submission_institution_daily_id`),
+  UNIQUE KEY `msid_uc_load_id_context_id_submission_id_institution_id_date` (`load_id`,`context_id`,`submission_id`,`institution_id`,`date`),
+  KEY `msid_load_id` (`load_id`),
+  KEY `metrics_counter_submission_institution_daily_context_id` (`context_id`),
+  KEY `metrics_counter_submission_institution_daily_submission_id` (`submission_id`),
+  KEY `metrics_counter_submission_institution_daily_institution_id` (`institution_id`),
+  KEY `msid_context_id_submission_id` (`context_id`,`submission_id`),
+  CONSTRAINT `msid_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `msid_institution_id_foreign` FOREIGN KEY (`institution_id`) REFERENCES `institutions` (`institution_id`) ON DELETE CASCADE,
+  CONSTRAINT `msid_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Daily statistics matching the COUNTER R5 protocol for views and downloads from institutions.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `metrics_counter_submission_institution_daily`
+--
+
+LOCK TABLES `metrics_counter_submission_institution_daily` WRITE;
+/*!40000 ALTER TABLE `metrics_counter_submission_institution_daily` DISABLE KEYS */;
+/*!40000 ALTER TABLE `metrics_counter_submission_institution_daily` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `metrics_counter_submission_institution_monthly`
+--
+
+DROP TABLE IF EXISTS `metrics_counter_submission_institution_monthly`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `metrics_counter_submission_institution_monthly` (
+  `metrics_counter_submission_institution_monthly_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `context_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) NOT NULL,
+  `institution_id` bigint(20) NOT NULL,
+  `month` int(11) NOT NULL,
+  `metric_investigations` int(11) NOT NULL,
+  `metric_investigations_unique` int(11) NOT NULL,
+  `metric_requests` int(11) NOT NULL,
+  `metric_requests_unique` int(11) NOT NULL,
+  PRIMARY KEY (`metrics_counter_submission_institution_monthly_id`),
+  UNIQUE KEY `msim_uc_context_id_submission_id_institution_id_month` (`context_id`,`submission_id`,`institution_id`,`month`),
+  KEY `metrics_counter_submission_institution_monthly_context_id` (`context_id`),
+  KEY `metrics_counter_submission_institution_monthly_submission_id` (`submission_id`),
+  KEY `metrics_counter_submission_institution_monthly_institution_id` (`institution_id`),
+  KEY `msim_context_id_submission_id` (`context_id`,`submission_id`),
+  CONSTRAINT `msim_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `msim_institution_id_foreign` FOREIGN KEY (`institution_id`) REFERENCES `institutions` (`institution_id`) ON DELETE CASCADE,
+  CONSTRAINT `msim_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Monthly statistics matching the COUNTER R5 protocol for views and downloads from institutions.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `metrics_counter_submission_institution_monthly`
+--
+
+LOCK TABLES `metrics_counter_submission_institution_monthly` WRITE;
+/*!40000 ALTER TABLE `metrics_counter_submission_institution_monthly` DISABLE KEYS */;
+/*!40000 ALTER TABLE `metrics_counter_submission_institution_monthly` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `metrics_counter_submission_monthly`
+--
+
+DROP TABLE IF EXISTS `metrics_counter_submission_monthly`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `metrics_counter_submission_monthly` (
+  `metrics_counter_submission_monthly_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `context_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) NOT NULL,
+  `month` int(11) NOT NULL,
+  `metric_investigations` int(11) NOT NULL,
+  `metric_investigations_unique` int(11) NOT NULL,
+  `metric_requests` int(11) NOT NULL,
+  `metric_requests_unique` int(11) NOT NULL,
+  PRIMARY KEY (`metrics_counter_submission_monthly_id`),
+  UNIQUE KEY `msm_uc_context_id_submission_id_month` (`context_id`,`submission_id`,`month`),
+  KEY `metrics_counter_submission_monthly_context_id` (`context_id`),
+  KEY `metrics_counter_submission_monthly_submission_id` (`submission_id`),
+  KEY `msm_context_id_submission_id` (`context_id`,`submission_id`),
+  CONSTRAINT `msm_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `msm_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Monthly statistics matching the COUNTER R5 protocol for views and downloads of published submissions and galleys.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `metrics_counter_submission_monthly`
+--
+
+LOCK TABLES `metrics_counter_submission_monthly` WRITE;
+/*!40000 ALTER TABLE `metrics_counter_submission_monthly` DISABLE KEYS */;
+/*!40000 ALTER TABLE `metrics_counter_submission_monthly` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `metrics_issue`
+--
+
+DROP TABLE IF EXISTS `metrics_issue`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `metrics_issue` (
+  `metrics_issue_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `load_id` varchar(50) NOT NULL,
+  `context_id` bigint(20) NOT NULL,
+  `issue_id` bigint(20) NOT NULL,
+  `issue_galley_id` bigint(20) DEFAULT NULL,
+  `date` date NOT NULL,
+  `metric` int(11) NOT NULL,
+  PRIMARY KEY (`metrics_issue_id`),
+  KEY `metrics_issue_load_id` (`load_id`),
+  KEY `metrics_issue_context_id` (`context_id`),
+  KEY `metrics_issue_issue_id` (`issue_id`),
+  KEY `metrics_issue_issue_galley_id` (`issue_galley_id`),
+  KEY `metrics_issue_context_id_issue_id` (`context_id`,`issue_id`),
+  CONSTRAINT `metrics_issue_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `metrics_issue_issue_galley_id_foreign` FOREIGN KEY (`issue_galley_id`) REFERENCES `issue_galleys` (`galley_id`) ON DELETE CASCADE,
+  CONSTRAINT `metrics_issue_issue_id_foreign` FOREIGN KEY (`issue_id`) REFERENCES `issues` (`issue_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Daily statistics for views and downloads of published issues.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `metrics_issue`
+--
+
+LOCK TABLES `metrics_issue` WRITE;
+/*!40000 ALTER TABLE `metrics_issue` DISABLE KEYS */;
+/*!40000 ALTER TABLE `metrics_issue` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `metrics_submission`
+--
+
+DROP TABLE IF EXISTS `metrics_submission`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `metrics_submission` (
+  `metrics_submission_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `load_id` varchar(50) NOT NULL,
+  `context_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) NOT NULL,
+  `representation_id` bigint(20) DEFAULT NULL,
+  `submission_file_id` bigint(20) unsigned DEFAULT NULL,
+  `file_type` bigint(20) DEFAULT NULL,
+  `assoc_type` bigint(20) NOT NULL,
+  `date` date NOT NULL,
+  `metric` int(11) NOT NULL,
+  PRIMARY KEY (`metrics_submission_id`),
+  KEY `ms_load_id` (`load_id`),
+  KEY `metrics_submission_context_id` (`context_id`),
+  KEY `metrics_submission_submission_id` (`submission_id`),
+  KEY `metrics_submission_representation_id` (`representation_id`),
+  KEY `metrics_submission_submission_file_id` (`submission_file_id`),
+  KEY `ms_context_id_submission_id_assoc_type_file_type` (`context_id`,`submission_id`,`assoc_type`,`file_type`),
+  CONSTRAINT `metrics_submission_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `metrics_submission_representation_id_foreign` FOREIGN KEY (`representation_id`) REFERENCES `publication_galleys` (`galley_id`) ON DELETE CASCADE,
+  CONSTRAINT `metrics_submission_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`) ON DELETE CASCADE,
+  CONSTRAINT `metrics_submission_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Daily statistics for views and downloads of published submissions and galleys.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `metrics_submission`
+--
+
+LOCK TABLES `metrics_submission` WRITE;
+/*!40000 ALTER TABLE `metrics_submission` DISABLE KEYS */;
+/*!40000 ALTER TABLE `metrics_submission` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `metrics_submission_geo_daily`
+--
+
+DROP TABLE IF EXISTS `metrics_submission_geo_daily`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `metrics_submission_geo_daily` (
+  `metrics_submission_geo_daily_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `load_id` varchar(50) NOT NULL,
+  `context_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) NOT NULL,
+  `country` varchar(2) NOT NULL DEFAULT '',
+  `region` varchar(3) NOT NULL DEFAULT '',
+  `city` varchar(255) NOT NULL DEFAULT '',
+  `date` date NOT NULL,
+  `metric` int(11) NOT NULL,
+  `metric_unique` int(11) NOT NULL,
+  PRIMARY KEY (`metrics_submission_geo_daily_id`),
+  UNIQUE KEY `msgd_uc_load_context_submission_c_r_c_date` (`load_id`,`context_id`,`submission_id`,`country`,`region`,`city`(80),`date`),
+  KEY `msgd_load_id` (`load_id`),
+  KEY `metrics_submission_geo_daily_context_id` (`context_id`),
+  KEY `metrics_submission_geo_daily_submission_id` (`submission_id`),
+  KEY `msgd_context_id_submission_id` (`context_id`,`submission_id`),
+  CONSTRAINT `msgd_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `msgd_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Daily statistics by country, region and city for views and downloads of published submissions and galleys.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `metrics_submission_geo_daily`
+--
+
+LOCK TABLES `metrics_submission_geo_daily` WRITE;
+/*!40000 ALTER TABLE `metrics_submission_geo_daily` DISABLE KEYS */;
+/*!40000 ALTER TABLE `metrics_submission_geo_daily` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `metrics_submission_geo_monthly`
+--
+
+DROP TABLE IF EXISTS `metrics_submission_geo_monthly`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `metrics_submission_geo_monthly` (
+  `metrics_submission_geo_monthly_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `context_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) NOT NULL,
+  `country` varchar(2) NOT NULL DEFAULT '',
+  `region` varchar(3) NOT NULL DEFAULT '',
+  `city` varchar(255) NOT NULL DEFAULT '',
+  `month` int(11) NOT NULL,
+  `metric` int(11) NOT NULL,
+  `metric_unique` int(11) NOT NULL,
+  PRIMARY KEY (`metrics_submission_geo_monthly_id`),
+  UNIQUE KEY `msgm_uc_context_submission_c_r_c_month` (`context_id`,`submission_id`,`country`,`region`,`city`(80),`month`),
+  KEY `metrics_submission_geo_monthly_context_id` (`context_id`),
+  KEY `metrics_submission_geo_monthly_submission_id` (`submission_id`),
+  KEY `msgm_context_id_submission_id` (`context_id`,`submission_id`),
+  CONSTRAINT `msgm_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `msgm_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Monthly statistics by country, region and city for views and downloads of published submissions and galleys.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `metrics_submission_geo_monthly`
+--
+
+LOCK TABLES `metrics_submission_geo_monthly` WRITE;
+/*!40000 ALTER TABLE `metrics_submission_geo_monthly` DISABLE KEYS */;
+/*!40000 ALTER TABLE `metrics_submission_geo_monthly` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -1485,14 +1919,17 @@ DROP TABLE IF EXISTS `navigation_menu_item_assignment_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `navigation_menu_item_assignment_settings` (
+  `navigation_menu_item_assignment_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `navigation_menu_item_assignment_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `navigation_menu_item_assignment_settings_pkey` (`navigation_menu_item_assignment_id`,`locale`,`setting_name`),
-  KEY `assignment_settings_navigation_menu_item_assignment_id` (`navigation_menu_item_assignment_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`navigation_menu_item_assignment_setting_id`),
+  UNIQUE KEY `navigation_menu_item_assignment_settings_unique` (`navigation_menu_item_assignment_id`,`locale`,`setting_name`),
+  KEY `navigation_menu_item_assignment_settings_n_m_i_a_id` (`navigation_menu_item_assignment_id`),
+  CONSTRAINT `assignment_settings_navigation_menu_item_assignment_id` FOREIGN KEY (`navigation_menu_item_assignment_id`) REFERENCES `navigation_menu_item_assignments` (`navigation_menu_item_assignment_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about navigation menu item assignments to navigation menus, including localized content.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1517,8 +1954,12 @@ CREATE TABLE `navigation_menu_item_assignments` (
   `navigation_menu_item_id` bigint(20) NOT NULL,
   `parent_id` bigint(20) DEFAULT NULL,
   `seq` bigint(20) DEFAULT 0,
-  PRIMARY KEY (`navigation_menu_item_assignment_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`navigation_menu_item_assignment_id`),
+  KEY `navigation_menu_item_assignments_navigation_menu_id` (`navigation_menu_id`),
+  KEY `navigation_menu_item_assignments_navigation_menu_item_id` (`navigation_menu_item_id`),
+  CONSTRAINT `navigation_menu_item_assignments_navigation_menu_id_foreign` FOREIGN KEY (`navigation_menu_id`) REFERENCES `navigation_menus` (`navigation_menu_id`) ON DELETE CASCADE,
+  CONSTRAINT `navigation_menu_item_assignments_navigation_menu_item_id_foreign` FOREIGN KEY (`navigation_menu_item_id`) REFERENCES `navigation_menu_items` (`navigation_menu_item_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Links navigation menu items to navigation menus.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1539,14 +1980,17 @@ DROP TABLE IF EXISTS `navigation_menu_item_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `navigation_menu_item_settings` (
+  `navigation_menu_item_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `navigation_menu_item_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
   `setting_value` longtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `navigation_menu_item_settings_pkey` (`navigation_menu_item_id`,`locale`,`setting_name`),
-  KEY `navigation_menu_item_settings_navigation_menu_id` (`navigation_menu_item_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`navigation_menu_item_setting_id`),
+  UNIQUE KEY `navigation_menu_item_settings_unique` (`navigation_menu_item_id`,`locale`,`setting_name`),
+  KEY `navigation_menu_item_settings_navigation_menu_item_id` (`navigation_menu_item_id`),
+  CONSTRAINT `navigation_menu_item_settings_navigation_menu_id` FOREIGN KEY (`navigation_menu_item_id`) REFERENCES `navigation_menu_items` (`navigation_menu_item_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about navigation menu items, including localized content such as names.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1555,7 +1999,7 @@ CREATE TABLE `navigation_menu_item_settings` (
 
 LOCK TABLES `navigation_menu_item_settings` WRITE;
 /*!40000 ALTER TABLE `navigation_menu_item_settings` DISABLE KEYS */;
-INSERT INTO `navigation_menu_item_settings` VALUES (1,'','titleLocaleKey','navigation.register','string'),(2,'','titleLocaleKey','navigation.login','string'),(3,'','titleLocaleKey','{$loggedInUsername}','string'),(4,'','titleLocaleKey','navigation.dashboard','string'),(5,'','titleLocaleKey','common.viewProfile','string'),(6,'','titleLocaleKey','navigation.admin','string'),(7,'','titleLocaleKey','user.logOut','string');
+INSERT INTO `navigation_menu_item_settings` VALUES (1,1,'','titleLocaleKey','navigation.register','string'),(2,2,'','titleLocaleKey','navigation.login','string'),(3,3,'','titleLocaleKey','{$loggedInUsername}','string'),(4,4,'','titleLocaleKey','navigation.dashboard','string'),(5,5,'','titleLocaleKey','common.viewProfile','string'),(6,6,'','titleLocaleKey','navigation.admin','string'),(7,7,'','titleLocaleKey','user.logOut','string');
 /*!40000 ALTER TABLE `navigation_menu_item_settings` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1572,7 +2016,7 @@ CREATE TABLE `navigation_menu_items` (
   `path` varchar(255) DEFAULT '',
   `type` varchar(255) DEFAULT '',
   PRIMARY KEY (`navigation_menu_item_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Navigation menu items are single elements within a navigation menu.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1598,7 +2042,7 @@ CREATE TABLE `navigation_menus` (
   `area_name` varchar(255) DEFAULT '',
   `title` varchar(255) NOT NULL,
   PRIMARY KEY (`navigation_menu_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Navigation menus on the website are installed with the software as a default set, and can be customized.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1628,8 +2072,10 @@ CREATE TABLE `notes` (
   `title` varchar(255) DEFAULT NULL,
   `contents` text DEFAULT NULL,
   PRIMARY KEY (`note_id`),
-  KEY `notes_assoc` (`assoc_type`,`assoc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `notes_user_id` (`user_id`),
+  KEY `notes_assoc` (`assoc_type`,`assoc_id`),
+  CONSTRAINT `notes_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Notes allow users to annotate associated entities, such as submissions.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1642,33 +2088,6 @@ LOCK TABLES `notes` WRITE;
 UNLOCK TABLES;
 
 --
--- Table structure for table `notification_mail_list`
---
-
-DROP TABLE IF EXISTS `notification_mail_list`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `notification_mail_list` (
-  `notification_mail_list_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `email` varchar(90) NOT NULL,
-  `confirmed` smallint(6) NOT NULL DEFAULT 0,
-  `token` varchar(40) NOT NULL,
-  `context` bigint(20) NOT NULL,
-  PRIMARY KEY (`notification_mail_list_id`),
-  UNIQUE KEY `notification_mail_list_email_context` (`email`,`context`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `notification_mail_list`
---
-
-LOCK TABLES `notification_mail_list` WRITE;
-/*!40000 ALTER TABLE `notification_mail_list` DISABLE KEYS */;
-/*!40000 ALTER TABLE `notification_mail_list` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `notification_settings`
 --
 
@@ -1676,13 +2095,17 @@ DROP TABLE IF EXISTS `notification_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `notification_settings` (
+  `notification_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `notification_id` bigint(20) NOT NULL,
   `locale` varchar(14) DEFAULT NULL,
   `setting_name` varchar(64) NOT NULL,
-  `setting_value` text NOT NULL,
+  `setting_value` mediumtext NOT NULL,
   `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  UNIQUE KEY `notification_settings_pkey` (`notification_id`,`locale`,`setting_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`notification_setting_id`),
+  UNIQUE KEY `notification_settings_unique` (`notification_id`,`locale`,`setting_name`),
+  KEY `notification_settings_notification_id` (`notification_id`),
+  CONSTRAINT `notification_settings_notification_id_foreign` FOREIGN KEY (`notification_id`) REFERENCES `notifications` (`notification_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about notifications, including localized properties.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1704,12 +2127,16 @@ DROP TABLE IF EXISTS `notification_subscription_settings`;
 CREATE TABLE `notification_subscription_settings` (
   `setting_id` bigint(20) NOT NULL AUTO_INCREMENT,
   `setting_name` varchar(64) NOT NULL,
-  `setting_value` text NOT NULL,
+  `setting_value` mediumtext NOT NULL,
   `user_id` bigint(20) NOT NULL,
-  `context` bigint(20) NOT NULL,
+  `context` bigint(20) DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  PRIMARY KEY (`setting_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`setting_id`),
+  KEY `notification_subscription_settings_user_id` (`user_id`),
+  KEY `notification_subscription_settings_context` (`context`),
+  CONSTRAINT `notification_subscription_settings_context_foreign` FOREIGN KEY (`context`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `notification_subscription_settings_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Which email notifications a user has chosen to unsubscribe from.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1730,7 +2157,7 @@ DROP TABLE IF EXISTS `notifications`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `notifications` (
   `notification_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `context_id` bigint(20) NOT NULL,
+  `context_id` bigint(20) DEFAULT NULL,
   `user_id` bigint(20) DEFAULT NULL,
   `level` bigint(20) NOT NULL,
   `type` bigint(20) NOT NULL,
@@ -1739,11 +2166,15 @@ CREATE TABLE `notifications` (
   `assoc_type` bigint(20) DEFAULT NULL,
   `assoc_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`notification_id`),
+  KEY `notifications_context_id` (`context_id`),
+  KEY `notifications_user_id` (`user_id`),
   KEY `notifications_context_id_user_id` (`context_id`,`user_id`,`level`),
-  KEY `notifications_context_id` (`context_id`,`level`),
+  KEY `notifications_context_id_level` (`context_id`,`level`),
   KEY `notifications_assoc` (`assoc_type`,`assoc_id`),
-  KEY `notifications_user_id_level` (`user_id`,`level`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `notifications_user_id_level` (`user_id`,`level`),
+  CONSTRAINT `notifications_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `notifications_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='User notifications created during certain operations.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1763,12 +2194,14 @@ DROP TABLE IF EXISTS `oai_resumption_tokens`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `oai_resumption_tokens` (
+  `oai_resumption_token_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `token` varchar(32) NOT NULL,
   `expire` bigint(20) NOT NULL,
   `record_offset` int(11) NOT NULL,
   `params` text DEFAULT NULL,
-  UNIQUE KEY `oai_resumption_tokens_pkey` (`token`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`oai_resumption_token_id`),
+  UNIQUE KEY `oai_resumption_tokens_unique` (`token`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='OAI resumption tokens are used to allow for pagination of large result sets into manageable pieces.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1788,14 +2221,16 @@ DROP TABLE IF EXISTS `plugin_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `plugin_settings` (
+  `plugin_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `plugin_name` varchar(80) NOT NULL,
   `context_id` bigint(20) NOT NULL,
   `setting_name` varchar(80) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  UNIQUE KEY `plugin_settings_pkey` (`plugin_name`,`context_id`,`setting_name`),
+  PRIMARY KEY (`plugin_setting_id`),
+  UNIQUE KEY `plugin_settings_unique` (`plugin_name`,`context_id`,`setting_name`),
   KEY `plugin_settings_plugin_name` (`plugin_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about plugins, including localized properties. This table is frequently used to store plugin-specific configuration.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1804,7 +2239,7 @@ CREATE TABLE `plugin_settings` (
 
 LOCK TABLES `plugin_settings` WRITE;
 /*!40000 ALTER TABLE `plugin_settings` DISABLE KEYS */;
-INSERT INTO `plugin_settings` VALUES ('acronplugin',0,'crontab','[{\"className\":\"plugins.generic.usageStats.UsageStatsLoader\",\"frequency\":{\"hour\":24},\"args\":[\"autoStage\"]},{\"className\":\"plugins.generic.usageStats.UsageStatsLoader\",\"frequency\":{\"hour\":24},\"args\":[\"autoStage\"]},{\"className\":\"plugins.importexport.doaj.DOAJInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.importexport.crossref.CrossrefInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.importexport.datacite.DataciteInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.generic.usageStats.UsageStatsLoader\",\"frequency\":{\"hour\":24},\"args\":[\"autoStage\"]},{\"className\":\"plugins.importexport.doaj.DOAJInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.importexport.crossref.CrossrefInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.importexport.datacite.DataciteInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.generic.usageStats.UsageStatsLoader\",\"frequency\":{\"hour\":24},\"args\":[\"autoStage\"]},{\"className\":\"plugins.importexport.doaj.DOAJInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.importexport.crossref.CrossrefInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.importexport.datacite.DataciteInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.generic.usageStats.UsageStatsLoader\",\"frequency\":{\"hour\":24},\"args\":[\"autoStage\"]},{\"className\":\"plugins.importexport.doaj.DOAJInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.importexport.crossref.CrossrefInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.importexport.datacite.DataciteInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.generic.usageStats.UsageStatsLoader\",\"frequency\":{\"hour\":24},\"args\":[\"autoStage\"]},{\"className\":\"plugins.importexport.doaj.DOAJInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.importexport.crossref.CrossrefInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"plugins.importexport.datacite.DataciteInfoSender\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"lib.pkp.classes.task.ReviewReminder\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"lib.pkp.classes.task.StatisticsReport\",\"frequency\":{\"day\":\"1\"},\"args\":[]},{\"className\":\"classes.tasks.SubscriptionExpiryReminder\",\"frequency\":{\"day\":\"1\"},\"args\":[]}]','object'),('acronplugin',0,'enabled','1','bool'),('defaultthemeplugin',0,'enabled','1','bool'),('developedbyblockplugin',0,'enabled','0','bool'),('developedbyblockplugin',0,'seq','0','int'),('languagetoggleblockplugin',0,'enabled','1','bool'),('languagetoggleblockplugin',0,'seq','4','int'),('tinymceplugin',0,'enabled','1','bool'),('usageeventplugin',0,'enabled','1','bool'),('usageeventplugin',0,'uniqueSiteId','','string'),('usagestatsplugin',0,'accessLogFileParseRegex','/^(?P<ip>\\S+) \\S+ \\S+ \\[(?P<date>.*?)\\] \"\\S+ (?P<url>\\S+).*?\" (?P<returnCode>\\S+) \\S+ \".*?\" \"(?P<userAgent>.*?)\"/','string'),('usagestatsplugin',0,'chartType','bar','string'),('usagestatsplugin',0,'createLogFiles','1','bool'),('usagestatsplugin',0,'datasetMaxCount','4','string'),('usagestatsplugin',0,'enabled','1','bool'),('usagestatsplugin',0,'optionalColumns','[\"city\",\"region\"]','object');
+INSERT INTO `plugin_settings` VALUES (1,'defaultthemeplugin',0,'enabled','1','bool'),(2,'usageeventplugin',0,'enabled','1','bool'),(3,'tinymceplugin',0,'enabled','1','bool'),(4,'acronplugin',0,'enabled','1','bool'),(5,'acronplugin',0,'crontab','[{\"className\":\"PKP\\\\task\\\\ReviewReminder\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"PKP\\\\task\\\\StatisticsReport\",\"frequency\":{\"day\":\"1\"},\"args\":[]},{\"className\":\"APP\\\\tasks\\\\SubscriptionExpiryReminder\",\"frequency\":{\"day\":\"1\"},\"args\":[]},{\"className\":\"PKP\\\\task\\\\DepositDois\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"PKP\\\\task\\\\RemoveUnvalidatedExpiredUsers\",\"frequency\":{\"day\":\"1\"},\"args\":[]},{\"className\":\"PKP\\\\task\\\\EditorialReminders\",\"frequency\":{\"day\":\"1\"},\"args\":[]},{\"className\":\"PKP\\\\task\\\\UpdateIPGeoDB\",\"frequency\":{\"day\":\"10\"},\"args\":[]},{\"className\":\"APP\\\\tasks\\\\UsageStatsLoader\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"PKP\\\\task\\\\ProcessQueueJobs\",\"frequency\":{\"hour\":24},\"args\":[]},{\"className\":\"PKP\\\\task\\\\RemoveFailedJobs\",\"frequency\":{\"day\":\"1\"},\"args\":[]},{\"className\":\"APP\\\\tasks\\\\OpenAccessNotification\",\"frequency\":{\"hour\":24},\"args\":[]}]','object'),(6,'developedbyblockplugin',0,'enabled','0','bool'),(7,'developedbyblockplugin',0,'seq','0','int'),(8,'languagetoggleblockplugin',0,'enabled','1','bool'),(9,'languagetoggleblockplugin',0,'seq','4','int');
 /*!40000 ALTER TABLE `plugin_settings` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1816,10 +2251,16 @@ DROP TABLE IF EXISTS `publication_categories`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `publication_categories` (
+  `publication_category_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `publication_id` bigint(20) NOT NULL,
   `category_id` bigint(20) NOT NULL,
-  UNIQUE KEY `publication_categories_id` (`publication_id`,`category_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`publication_category_id`),
+  UNIQUE KEY `publication_categories_id` (`publication_id`,`category_id`),
+  KEY `publication_categories_publication_id` (`publication_id`),
+  KEY `publication_categories_category_id` (`category_id`),
+  CONSTRAINT `publication_categories_category_id_foreign` FOREIGN KEY (`category_id`) REFERENCES `categories` (`category_id`) ON DELETE CASCADE,
+  CONSTRAINT `publication_categories_publication_id_foreign` FOREIGN KEY (`publication_id`) REFERENCES `publications` (`publication_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Associates publications (and thus submissions) with categories.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1839,14 +2280,17 @@ DROP TABLE IF EXISTS `publication_galley_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `publication_galley_settings` (
+  `publication_galley_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `galley_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  UNIQUE KEY `publication_galley_settings_pkey` (`galley_id`,`locale`,`setting_name`),
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`publication_galley_setting_id`),
+  UNIQUE KEY `publication_galley_settings_unique` (`galley_id`,`locale`,`setting_name`),
   KEY `publication_galley_settings_galley_id` (`galley_id`),
-  KEY `publication_galley_settings_name_value` (`setting_name`(50),`setting_value`(150))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `publication_galley_settings_name_value` (`setting_name`(50),`setting_value`(150)),
+  CONSTRAINT `publication_galley_settings_galley_id` FOREIGN KEY (`galley_id`) REFERENCES `publication_galleys` (`galley_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about publication galleys, including localized content such as labels.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1875,12 +2319,16 @@ CREATE TABLE `publication_galleys` (
   `remote_url` varchar(2047) DEFAULT NULL,
   `is_approved` smallint(6) NOT NULL DEFAULT 0,
   `url_path` varchar(64) DEFAULT NULL,
+  `doi_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`galley_id`),
   KEY `publication_galleys_publication_id` (`publication_id`),
+  KEY `publication_galleys_submission_file_id` (`submission_file_id`),
+  KEY `publication_galleys_doi_id` (`doi_id`),
   KEY `publication_galleys_url_path` (`url_path`),
-  KEY `publication_galleys_submission_file_id_foreign` (`submission_file_id`),
+  CONSTRAINT `publication_galleys_doi_id_foreign` FOREIGN KEY (`doi_id`) REFERENCES `dois` (`doi_id`) ON DELETE SET NULL,
+  CONSTRAINT `publication_galleys_publication_id` FOREIGN KEY (`publication_id`) REFERENCES `publications` (`publication_id`) ON DELETE CASCADE,
   CONSTRAINT `publication_galleys_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Publication galleys are representations of a publication in a specific format, e.g. a PDF.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1900,14 +2348,17 @@ DROP TABLE IF EXISTS `publication_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `publication_settings` (
+  `publication_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `publication_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  UNIQUE KEY `publication_settings_pkey` (`publication_id`,`locale`,`setting_name`),
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`publication_setting_id`),
+  UNIQUE KEY `publication_settings_unique` (`publication_id`,`locale`,`setting_name`),
+  KEY `publication_settings_name_value` (`setting_name`(50),`setting_value`(150)),
   KEY `publication_settings_publication_id` (`publication_id`),
-  KEY `publication_settings_name_value` (`setting_name`(50),`setting_value`(150))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  CONSTRAINT `publication_settings_publication_id` FOREIGN KEY (`publication_id`) REFERENCES `publications` (`publication_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about publications, including localized properties such as the title and abstract.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1931,7 +2382,6 @@ CREATE TABLE `publications` (
   `access_status` bigint(20) DEFAULT 0,
   `date_published` date DEFAULT NULL,
   `last_modified` datetime DEFAULT NULL,
-  `locale` varchar(14) DEFAULT NULL,
   `primary_contact_id` bigint(20) DEFAULT NULL,
   `section_id` bigint(20) DEFAULT NULL,
   `seq` double(8,2) NOT NULL DEFAULT 0.00,
@@ -1939,11 +2389,18 @@ CREATE TABLE `publications` (
   `status` smallint(6) NOT NULL DEFAULT 1,
   `url_path` varchar(64) DEFAULT NULL,
   `version` bigint(20) DEFAULT NULL,
+  `doi_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`publication_id`),
-  KEY `publications_submission_id` (`submission_id`),
+  KEY `publications_primary_contact_id` (`primary_contact_id`),
   KEY `publications_section_id` (`section_id`),
-  KEY `publications_url_path` (`url_path`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `publications_submission_id` (`submission_id`),
+  KEY `publications_doi_id` (`doi_id`),
+  KEY `publications_url_path` (`url_path`),
+  CONSTRAINT `publications_doi_id_foreign` FOREIGN KEY (`doi_id`) REFERENCES `dois` (`doi_id`) ON DELETE SET NULL,
+  CONSTRAINT `publications_primary_contact_id` FOREIGN KEY (`primary_contact_id`) REFERENCES `authors` (`author_id`) ON DELETE SET NULL,
+  CONSTRAINT `publications_section_id` FOREIGN KEY (`section_id`) REFERENCES `sections` (`section_id`) ON DELETE SET NULL,
+  CONSTRAINT `publications_submission_id` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Each publication is one version of a submission.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1973,7 +2430,7 @@ CREATE TABLE `queries` (
   `closed` smallint(6) NOT NULL DEFAULT 0,
   PRIMARY KEY (`query_id`),
   KEY `queries_assoc_id` (`assoc_type`,`assoc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Discussions, usually related to a submission, created by editors, authors and other editorial staff.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1993,10 +2450,16 @@ DROP TABLE IF EXISTS `query_participants`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `query_participants` (
+  `query_participant_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `query_id` bigint(20) NOT NULL,
   `user_id` bigint(20) NOT NULL,
-  UNIQUE KEY `query_participants_pkey` (`query_id`,`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`query_participant_id`),
+  UNIQUE KEY `query_participants_unique` (`query_id`,`user_id`),
+  KEY `query_participants_query_id` (`query_id`),
+  KEY `query_participants_user_id` (`user_id`),
+  CONSTRAINT `query_participants_query_id_foreign` FOREIGN KEY (`query_id`) REFERENCES `queries` (`query_id`) ON DELETE CASCADE,
+  CONSTRAINT `query_participants_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='The users assigned to a discussion.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2022,7 +2485,7 @@ CREATE TABLE `queued_payments` (
   `expiry_date` date DEFAULT NULL,
   `payment_data` text DEFAULT NULL,
   PRIMARY KEY (`queued_payment_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Unfulfilled (queued) payments, i.e. payments that have not yet been completed via an online payment system.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2058,7 +2521,6 @@ CREATE TABLE `review_assignments` (
   `reminder_was_automatic` smallint(6) NOT NULL DEFAULT 0,
   `declined` smallint(6) NOT NULL DEFAULT 0,
   `cancelled` smallint(6) NOT NULL DEFAULT 0,
-  `reviewer_file_id` bigint(20) DEFAULT NULL,
   `date_rated` datetime DEFAULT NULL,
   `date_reminded` datetime DEFAULT NULL,
   `quality` smallint(6) DEFAULT NULL,
@@ -2068,13 +2530,19 @@ CREATE TABLE `review_assignments` (
   `round` smallint(6) NOT NULL DEFAULT 1,
   `step` smallint(6) NOT NULL DEFAULT 1,
   `review_form_id` bigint(20) DEFAULT NULL,
-  `unconsidered` smallint(6) DEFAULT NULL,
+  `considered` smallint(6) DEFAULT NULL,
+  `request_resent` smallint(6) NOT NULL DEFAULT 0,
   PRIMARY KEY (`review_id`),
   KEY `review_assignments_submission_id` (`submission_id`),
   KEY `review_assignments_reviewer_id` (`reviewer_id`),
+  KEY `review_assignment_reviewer_round` (`review_round_id`,`reviewer_id`),
   KEY `review_assignments_form_id` (`review_form_id`),
-  KEY `review_assignments_reviewer_review` (`reviewer_id`,`review_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `review_assignments_reviewer_review` (`reviewer_id`,`review_id`),
+  CONSTRAINT `review_assignments_review_form_id_foreign` FOREIGN KEY (`review_form_id`) REFERENCES `review_forms` (`review_form_id`),
+  CONSTRAINT `review_assignments_review_round_id_foreign` FOREIGN KEY (`review_round_id`) REFERENCES `review_rounds` (`review_round_id`),
+  CONSTRAINT `review_assignments_reviewer_id_foreign` FOREIGN KEY (`reviewer_id`) REFERENCES `users` (`user_id`),
+  CONSTRAINT `review_assignments_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Data about peer review assignments for all submissions.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2094,13 +2562,16 @@ DROP TABLE IF EXISTS `review_files`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `review_files` (
+  `review_file_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `review_id` bigint(20) NOT NULL,
   `submission_file_id` bigint(20) unsigned NOT NULL,
-  UNIQUE KEY `review_files_pkey` (`review_id`,`submission_file_id`),
+  PRIMARY KEY (`review_file_id`),
+  UNIQUE KEY `review_files_unique` (`review_id`,`submission_file_id`),
   KEY `review_files_review_id` (`review_id`),
-  KEY `review_files_submission_file_id_foreign` (`submission_file_id`),
-  CONSTRAINT `review_files_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `review_files_submission_file_id` (`submission_file_id`),
+  CONSTRAINT `review_files_review_id_foreign` FOREIGN KEY (`review_id`) REFERENCES `review_assignments` (`review_id`) ON DELETE CASCADE,
+  CONSTRAINT `review_files_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A list of the submission files made available to each assigned reviewer.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2120,14 +2591,17 @@ DROP TABLE IF EXISTS `review_form_element_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `review_form_element_settings` (
+  `review_form_element_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `review_form_element_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `review_form_element_settings_pkey` (`review_form_element_id`,`locale`,`setting_name`),
-  KEY `review_form_element_settings_review_form_element_id` (`review_form_element_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`review_form_element_setting_id`),
+  UNIQUE KEY `review_form_element_settings_unique` (`review_form_element_id`,`locale`,`setting_name`),
+  KEY `review_form_element_settings_review_form_element_id` (`review_form_element_id`),
+  CONSTRAINT `review_form_element_settings_review_form_element_id` FOREIGN KEY (`review_form_element_id`) REFERENCES `review_form_elements` (`review_form_element_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about review form elements, including localized content such as question text.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2154,8 +2628,9 @@ CREATE TABLE `review_form_elements` (
   `required` smallint(6) DEFAULT NULL,
   `included` smallint(6) DEFAULT NULL,
   PRIMARY KEY (`review_form_element_id`),
-  KEY `review_form_elements_review_form_id` (`review_form_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `review_form_elements_review_form_id` (`review_form_id`),
+  CONSTRAINT `review_form_elements_review_form_id` FOREIGN KEY (`review_form_id`) REFERENCES `review_forms` (`review_form_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Each review form element represents a single question on a review form.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2175,12 +2650,18 @@ DROP TABLE IF EXISTS `review_form_responses`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `review_form_responses` (
+  `review_form_response_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `review_form_element_id` bigint(20) NOT NULL,
   `review_id` bigint(20) NOT NULL,
   `response_type` varchar(6) DEFAULT NULL,
   `response_value` text DEFAULT NULL,
-  KEY `review_form_responses_pkey` (`review_form_element_id`,`review_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`review_form_response_id`),
+  KEY `review_form_responses_review_form_element_id` (`review_form_element_id`),
+  KEY `review_form_responses_review_id` (`review_id`),
+  KEY `review_form_responses_unique` (`review_form_element_id`,`review_id`),
+  CONSTRAINT `review_form_responses_review_form_element_id_foreign` FOREIGN KEY (`review_form_element_id`) REFERENCES `review_form_elements` (`review_form_element_id`) ON DELETE CASCADE,
+  CONSTRAINT `review_form_responses_review_id_foreign` FOREIGN KEY (`review_id`) REFERENCES `review_assignments` (`review_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Each review form response records a reviewer''s answer to a review form element associated with a peer review.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2200,14 +2681,17 @@ DROP TABLE IF EXISTS `review_form_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `review_form_settings` (
+  `review_form_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `review_form_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `review_form_settings_pkey` (`review_form_id`,`locale`,`setting_name`),
-  KEY `review_form_settings_review_form_id` (`review_form_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`review_form_setting_id`),
+  UNIQUE KEY `review_form_settings_unique` (`review_form_id`,`locale`,`setting_name`),
+  KEY `review_form_settings_review_form_id` (`review_form_id`),
+  CONSTRAINT `review_form_settings_review_form_id` FOREIGN KEY (`review_form_id`) REFERENCES `review_forms` (`review_form_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about review forms, including localized content such as names.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2233,7 +2717,7 @@ CREATE TABLE `review_forms` (
   `seq` double(8,2) DEFAULT NULL,
   `is_active` smallint(6) DEFAULT NULL,
   PRIMARY KEY (`review_form_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Review forms provide custom templates for peer reviews with several types of questions.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2253,15 +2737,20 @@ DROP TABLE IF EXISTS `review_round_files`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `review_round_files` (
+  `review_round_file_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `submission_id` bigint(20) NOT NULL,
   `review_round_id` bigint(20) NOT NULL,
   `stage_id` smallint(6) NOT NULL,
   `submission_file_id` bigint(20) unsigned NOT NULL,
-  UNIQUE KEY `review_round_files_pkey` (`submission_id`,`review_round_id`,`submission_file_id`),
+  PRIMARY KEY (`review_round_file_id`),
+  UNIQUE KEY `review_round_files_unique` (`submission_id`,`review_round_id`,`submission_file_id`),
   KEY `review_round_files_submission_id` (`submission_id`),
-  KEY `review_round_files_submission_file_id_foreign` (`submission_file_id`),
-  CONSTRAINT `review_round_files_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `review_round_files_review_round_id` (`review_round_id`),
+  KEY `review_round_files_submission_file_id` (`submission_file_id`),
+  CONSTRAINT `review_round_files_review_round_id_foreign` FOREIGN KEY (`review_round_id`) REFERENCES `review_rounds` (`review_round_id`) ON DELETE CASCADE,
+  CONSTRAINT `review_round_files_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`) ON DELETE CASCADE,
+  CONSTRAINT `review_round_files_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Records the files made available to reviewers for a round of reviews. These can be further customized on a per review basis with review_files.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2289,8 +2778,9 @@ CREATE TABLE `review_rounds` (
   `status` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`review_round_id`),
   UNIQUE KEY `review_rounds_submission_id_stage_id_round_pkey` (`submission_id`,`stage_id`,`round`),
-  KEY `review_rounds_submission_id` (`submission_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `review_rounds_submission_id` (`submission_id`),
+  CONSTRAINT `review_rounds_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Peer review assignments are organized into multiple rounds on a submission.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2310,10 +2800,12 @@ DROP TABLE IF EXISTS `scheduled_tasks`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `scheduled_tasks` (
+  `scheduled_task_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `class_name` varchar(255) NOT NULL,
   `last_run` datetime DEFAULT NULL,
-  UNIQUE KEY `scheduled_tasks_pkey` (`class_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`scheduled_task_id`),
+  UNIQUE KEY `scheduled_tasks_unique` (`class_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='The last time each scheduled task was run.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2333,14 +2825,16 @@ DROP TABLE IF EXISTS `section_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `section_settings` (
+  `section_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `section_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  UNIQUE KEY `section_settings_pkey` (`section_id`,`locale`,`setting_name`),
-  KEY `section_settings_section_id` (`section_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`section_setting_id`),
+  UNIQUE KEY `section_settings_unique` (`section_id`,`locale`,`setting_name`),
+  KEY `section_settings_section_id` (`section_id`),
+  CONSTRAINT `section_settings_section_id` FOREIGN KEY (`section_id`) REFERENCES `sections` (`section_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about sections, including localized properties like section titles.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2373,8 +2867,11 @@ CREATE TABLE `sections` (
   `is_inactive` smallint(6) NOT NULL DEFAULT 0,
   `abstract_word_count` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`section_id`),
-  KEY `sections_journal_id` (`journal_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `sections_journal_id` (`journal_id`),
+  KEY `sections_review_form_id` (`review_form_id`),
+  CONSTRAINT `sections_journal_id` FOREIGN KEY (`journal_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `sections_review_form_id` FOREIGN KEY (`review_form_id`) REFERENCES `review_forms` (`review_form_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A list of all sections into which submissions can be organized, forming the table of contents.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2404,8 +2901,9 @@ CREATE TABLE `sessions` (
   `data` text NOT NULL,
   `domain` varchar(255) DEFAULT NULL,
   UNIQUE KEY `sessions_pkey` (`session_id`),
-  KEY `sessions_user_id` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `sessions_user_id` (`user_id`),
+  CONSTRAINT `sessions_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Session data for logged-in users.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2414,6 +2912,7 @@ CREATE TABLE `sessions` (
 
 LOCK TABLES `sessions` WRITE;
 /*!40000 ALTER TABLE `sessions` DISABLE KEYS */;
+INSERT INTO `sessions` VALUES ('52655dac10fb1799269abfddf2b24a1f',1,'172.18.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:139.0) Gecko/20100101 Firefox/139.0',1748886262,1748886456,1,'csrf|a:2:{s:9:\"timestamp\";i:1748886456;s:5:\"token\";s:32:\"e9c619006c2c05a63bba4b8454d93e8a\";}userId|i:1;username|s:5:\"admin\";','localhost');
 /*!40000 ALTER TABLE `sessions` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -2425,13 +2924,15 @@ DROP TABLE IF EXISTS `site`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `site` (
+  `site_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `redirect` bigint(20) NOT NULL DEFAULT 0 COMMENT 'If not 0, redirect to the specified journal/conference/... site.',
   `primary_locale` varchar(14) NOT NULL COMMENT 'Primary locale for the site.',
   `min_password_length` smallint(6) NOT NULL DEFAULT 6,
-  `installed_locales` varchar(1024) NOT NULL DEFAULT 'en_US' COMMENT 'Locales for which support has been installed.',
+  `installed_locales` varchar(1024) NOT NULL DEFAULT 'en' COMMENT 'Locales for which support has been installed.',
   `supported_locales` varchar(1024) DEFAULT NULL COMMENT 'Locales supported by the site (for hosted journals/conferences/...).',
-  `original_style_file_name` varchar(255) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  `original_style_file_name` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`site_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A singleton table describing basic information about the site.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2440,7 +2941,7 @@ CREATE TABLE `site` (
 
 LOCK TABLES `site` WRITE;
 /*!40000 ALTER TABLE `site` DISABLE KEYS */;
-INSERT INTO `site` VALUES (0,'en_US',6,'[\"en_US\"]','[\"en_US\"]',NULL);
+INSERT INTO `site` VALUES (1,0,'en',6,'[\"en\"]','[\"en\"]',NULL);
 /*!40000 ALTER TABLE `site` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -2452,11 +2953,13 @@ DROP TABLE IF EXISTS `site_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `site_settings` (
+  `site_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `setting_name` varchar(255) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
-  `setting_value` text DEFAULT NULL,
-  UNIQUE KEY `site_settings_pkey` (`setting_name`,`locale`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`site_setting_id`),
+  UNIQUE KEY `site_settings_unique` (`setting_name`,`locale`)
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about the site, including localized properties such as its name.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2465,7 +2968,7 @@ CREATE TABLE `site_settings` (
 
 LOCK TABLES `site_settings` WRITE;
 /*!40000 ALTER TABLE `site_settings` DISABLE KEYS */;
-INSERT INTO `site_settings` VALUES ('contactEmail','en_US','admin@example.org'),('contactName','en_US','Open Journal Systems'),('themePluginPath','','default');
+INSERT INTO `site_settings` VALUES (1,'contactEmail','en','admin@example.org'),(2,'contactName','en','Open Journal Systems'),(3,'compressStatsLogs','','0'),(4,'enableGeoUsageStats','','disabled'),(5,'enableInstitutionUsageStats','','0'),(6,'keepDailyUsageStats','','0'),(7,'isSiteSushiPlatform','','0'),(8,'isSushiApiPublic','','1'),(9,'disableSharedReviewerStatistics','','0'),(10,'themePluginPath','','default'),(11,'uniqueSiteId','','DC9BB176-90D7-402E-94F6-40FAA9BC67D7');
 /*!40000 ALTER TABLE `site_settings` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -2486,10 +2989,13 @@ CREATE TABLE `stage_assignments` (
   `can_change_metadata` smallint(6) NOT NULL DEFAULT 0,
   PRIMARY KEY (`stage_assignment_id`),
   UNIQUE KEY `stage_assignment` (`submission_id`,`user_group_id`,`user_id`),
-  KEY `stage_assignments_submission_id` (`submission_id`),
   KEY `stage_assignments_user_group_id` (`user_group_id`),
-  KEY `stage_assignments_user_id` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `stage_assignments_user_id` (`user_id`),
+  KEY `stage_assignments_submission_id` (`submission_id`),
+  CONSTRAINT `stage_assignments_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE,
+  CONSTRAINT `stage_assignments_user_group_id` FOREIGN KEY (`user_group_id`) REFERENCES `user_groups` (`user_group_id`) ON DELETE CASCADE,
+  CONSTRAINT `stage_assignments_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Who can access a submission while it is in the editorial workflow. Includes all editorial and author assignments. For reviewers, see review_assignments.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2509,13 +3015,15 @@ DROP TABLE IF EXISTS `static_page_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `static_page_settings` (
+  `static_page_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `static_page_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
   `setting_value` longtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  UNIQUE KEY `static_page_settings_pkey` (`static_page_id`,`locale`,`setting_name`),
-  KEY `static_page_settings_static_page_id` (`static_page_id`)
+  PRIMARY KEY (`static_page_setting_id`),
+  KEY `static_page_settings_static_page_id` (`static_page_id`),
+  CONSTRAINT `static_page_settings_static_page_id` FOREIGN KEY (`static_page_id`) REFERENCES `static_pages` (`static_page_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -2539,7 +3047,9 @@ CREATE TABLE `static_pages` (
   `static_page_id` bigint(20) NOT NULL AUTO_INCREMENT,
   `path` varchar(255) NOT NULL,
   `context_id` bigint(20) NOT NULL,
-  PRIMARY KEY (`static_page_id`)
+  PRIMARY KEY (`static_page_id`),
+  KEY `static_pages_context_id` (`context_id`),
+  CONSTRAINT `static_pages_context_id` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -2560,15 +3070,22 @@ DROP TABLE IF EXISTS `subeditor_submission_group`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `subeditor_submission_group` (
+  `subeditor_submission_group_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `context_id` bigint(20) NOT NULL,
   `assoc_id` bigint(20) NOT NULL,
   `assoc_type` bigint(20) NOT NULL,
   `user_id` bigint(20) NOT NULL,
-  UNIQUE KEY `section_editors_pkey` (`context_id`,`assoc_id`,`assoc_type`,`user_id`),
-  KEY `section_editors_context_id` (`context_id`),
+  `user_group_id` bigint(20) NOT NULL,
+  PRIMARY KEY (`subeditor_submission_group_id`),
+  UNIQUE KEY `section_editors_unique` (`context_id`,`assoc_id`,`assoc_type`,`user_id`,`user_group_id`),
+  KEY `subeditor_submission_group_context_id` (`context_id`),
+  KEY `subeditor_submission_group_user_id` (`user_id`),
+  KEY `subeditor_submission_group_user_group_id` (`user_group_id`),
   KEY `subeditor_submission_group_assoc_id` (`assoc_id`,`assoc_type`),
-  KEY `subeditor_submission_group_user_id` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  CONSTRAINT `section_editors_context_id` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `subeditor_submission_group_user_group_id_foreign` FOREIGN KEY (`user_group_id`) REFERENCES `user_groups` (`user_group_id`) ON DELETE CASCADE,
+  CONSTRAINT `subeditor_submission_group_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Subeditor assignments to e.g. sections and categories';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2600,8 +3117,11 @@ CREATE TABLE `submission_comments` (
   `date_modified` datetime DEFAULT NULL,
   `viewable` smallint(6) DEFAULT NULL,
   PRIMARY KEY (`comment_id`),
-  KEY `submission_comments_submission_id` (`submission_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `submission_comments_submission_id` (`submission_id`),
+  KEY `submission_comments_author_id` (`author_id`),
+  CONSTRAINT `submission_comments_author_id_foreign` FOREIGN KEY (`author_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
+  CONSTRAINT `submission_comments_submission_id` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Comments on a submission, e.g. peer review comments';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2625,11 +3145,11 @@ CREATE TABLE `submission_file_revisions` (
   `submission_file_id` bigint(20) unsigned NOT NULL,
   `file_id` bigint(20) unsigned NOT NULL,
   PRIMARY KEY (`revision_id`),
-  KEY `submission_file_revisions_submission_file_id_foreign` (`submission_file_id`),
-  KEY `submission_file_revisions_file_id_foreign` (`file_id`),
-  CONSTRAINT `submission_file_revisions_file_id_foreign` FOREIGN KEY (`file_id`) REFERENCES `files` (`file_id`),
-  CONSTRAINT `submission_file_revisions_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `submission_file_revisions_submission_file_id` (`submission_file_id`),
+  KEY `submission_file_revisions_file_id` (`file_id`),
+  CONSTRAINT `submission_file_revisions_file_id_foreign` FOREIGN KEY (`file_id`) REFERENCES `files` (`file_id`) ON DELETE CASCADE,
+  CONSTRAINT `submission_file_revisions_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Revisions map submission_file entries to files on the data store.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2649,14 +3169,16 @@ DROP TABLE IF EXISTS `submission_file_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `submission_file_settings` (
-  `submission_file_id` bigint(20) NOT NULL,
+  `submission_file_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `submission_file_id` bigint(20) unsigned NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  `setting_type` varchar(6) NOT NULL DEFAULT 'string' COMMENT '(bool|int|float|string|object|date)',
-  UNIQUE KEY `submission_file_settings_pkey` (`submission_file_id`,`locale`,`setting_name`),
-  KEY `submission_file_settings_id` (`submission_file_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`submission_file_setting_id`),
+  UNIQUE KEY `submission_file_settings_unique` (`submission_file_id`,`locale`,`setting_name`),
+  KEY `submission_file_settings_submission_file_id` (`submission_file_id`),
+  CONSTRAINT `submission_file_settings_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Localized data about submission files like published metadata.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2679,7 +3201,7 @@ CREATE TABLE `submission_files` (
   `submission_file_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `submission_id` bigint(20) NOT NULL,
   `file_id` bigint(20) unsigned NOT NULL,
-  `source_submission_file_id` bigint(20) DEFAULT NULL,
+  `source_submission_file_id` bigint(20) unsigned DEFAULT NULL,
   `genre_id` bigint(20) DEFAULT NULL,
   `file_stage` bigint(20) NOT NULL,
   `direct_sales_price` varchar(255) DEFAULT NULL,
@@ -2692,10 +3214,17 @@ CREATE TABLE `submission_files` (
   `assoc_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`submission_file_id`),
   KEY `submission_files_submission_id` (`submission_id`),
+  KEY `submission_files_file_id` (`file_id`),
+  KEY `submission_files_genre_id` (`genre_id`),
+  KEY `submission_files_uploader_user_id` (`uploader_user_id`),
   KEY `submission_files_stage_assoc` (`file_stage`,`assoc_type`,`assoc_id`),
-  KEY `submission_files_file_id_foreign` (`file_id`),
-  CONSTRAINT `submission_files_file_id_foreign` FOREIGN KEY (`file_id`) REFERENCES `files` (`file_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `submission_files_source_submission_file_id` (`source_submission_file_id`),
+  CONSTRAINT `submission_files_file_id_foreign` FOREIGN KEY (`file_id`) REFERENCES `files` (`file_id`) ON DELETE CASCADE,
+  CONSTRAINT `submission_files_genre_id_foreign` FOREIGN KEY (`genre_id`) REFERENCES `genres` (`genre_id`) ON DELETE SET NULL,
+  CONSTRAINT `submission_files_source_submission_file_id_foreign` FOREIGN KEY (`source_submission_file_id`) REFERENCES `submission_files` (`submission_file_id`) ON DELETE CASCADE,
+  CONSTRAINT `submission_files_submission_id` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE,
+  CONSTRAINT `submission_files_uploader_user_id_foreign` FOREIGN KEY (`uploader_user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='All files associated with a submission, such as those uploaded during submission, as revisions, or by copyeditors or layout editors for production.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2719,7 +3248,7 @@ CREATE TABLE `submission_search_keyword_list` (
   `keyword_text` varchar(60) NOT NULL,
   PRIMARY KEY (`keyword_id`),
   UNIQUE KEY `submission_search_keyword_text` (`keyword_text`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A list of all keywords used in the search index';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2739,12 +3268,17 @@ DROP TABLE IF EXISTS `submission_search_object_keywords`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `submission_search_object_keywords` (
+  `submission_search_object_keyword_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `object_id` bigint(20) NOT NULL,
   `keyword_id` bigint(20) NOT NULL,
   `pos` int(11) NOT NULL COMMENT 'Word position of the keyword in the object.',
-  UNIQUE KEY `submission_search_object_keywords_pkey` (`object_id`,`pos`),
-  KEY `submission_search_object_keywords_keyword_id` (`keyword_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`submission_search_object_keyword_id`),
+  UNIQUE KEY `submission_search_object_keywords_unique` (`object_id`,`pos`),
+  KEY `submission_search_object_keywords_object_id` (`object_id`),
+  KEY `submission_search_object_keywords_keyword_id` (`keyword_id`),
+  CONSTRAINT `submission_search_object_keywords_keyword_id` FOREIGN KEY (`keyword_id`) REFERENCES `submission_search_keyword_list` (`keyword_id`) ON DELETE CASCADE,
+  CONSTRAINT `submission_search_object_keywords_object_id_foreign` FOREIGN KEY (`object_id`) REFERENCES `submission_search_objects` (`object_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Relationships between search objects and keywords in the search index';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2769,8 +3303,9 @@ CREATE TABLE `submission_search_objects` (
   `type` int(11) NOT NULL COMMENT 'Type of item. E.g., abstract, fulltext, etc.',
   `assoc_id` bigint(20) DEFAULT NULL COMMENT 'Optional ID of an associated record (e.g., a file_id)',
   PRIMARY KEY (`object_id`),
-  KEY `submission_search_object_submission` (`submission_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `submission_search_objects_submission_id` (`submission_id`),
+  CONSTRAINT `submission_search_object_submission` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A list of all search objects indexed in the search index';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2790,13 +3325,16 @@ DROP TABLE IF EXISTS `submission_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `submission_settings` (
+  `submission_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `submission_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
   `setting_value` mediumtext DEFAULT NULL,
-  UNIQUE KEY `submission_settings_pkey` (`submission_id`,`locale`,`setting_name`),
-  KEY `submission_settings_submission_id` (`submission_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`submission_setting_id`),
+  UNIQUE KEY `submission_settings_unique` (`submission_id`,`locale`,`setting_name`),
+  KEY `submission_settings_submission_id` (`submission_id`),
+  CONSTRAINT `submission_settings_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Localized data about submissions';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2806,37 +3344,6 @@ CREATE TABLE `submission_settings` (
 LOCK TABLES `submission_settings` WRITE;
 /*!40000 ALTER TABLE `submission_settings` DISABLE KEYS */;
 /*!40000 ALTER TABLE `submission_settings` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `submission_tombstones`
---
-
-DROP TABLE IF EXISTS `submission_tombstones`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `submission_tombstones` (
-  `tombstone_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `submission_id` bigint(20) NOT NULL,
-  `date_deleted` datetime NOT NULL,
-  `journal_id` bigint(20) NOT NULL,
-  `section_id` bigint(20) NOT NULL,
-  `set_spec` varchar(255) NOT NULL,
-  `set_name` varchar(255) NOT NULL,
-  `oai_identifier` varchar(255) NOT NULL,
-  PRIMARY KEY (`tombstone_id`),
-  KEY `submission_tombstones_journal_id` (`journal_id`),
-  KEY `submission_tombstones_submission_id` (`submission_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `submission_tombstones`
---
-
-LOCK TABLES `submission_tombstones` WRITE;
-/*!40000 ALTER TABLE `submission_tombstones` DISABLE KEYS */;
-/*!40000 ALTER TABLE `submission_tombstones` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -2856,12 +3363,14 @@ CREATE TABLE `submissions` (
   `stage_id` bigint(20) NOT NULL DEFAULT 1,
   `locale` varchar(14) DEFAULT NULL,
   `status` smallint(6) NOT NULL DEFAULT 1,
-  `submission_progress` smallint(6) NOT NULL DEFAULT 1,
+  `submission_progress` varchar(50) NOT NULL DEFAULT 'start',
   `work_type` smallint(6) DEFAULT 0,
   PRIMARY KEY (`submission_id`),
   KEY `submissions_context_id` (`context_id`),
-  KEY `submissions_publication_id` (`current_publication_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `submissions_publication_id` (`current_publication_id`),
+  CONSTRAINT `submissions_context_id` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `submissions_publication_id` FOREIGN KEY (`current_publication_id`) REFERENCES `publications` (`publication_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='All submissions submitted to the context, including incomplete, declined and unpublished submissions.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2881,14 +3390,17 @@ DROP TABLE IF EXISTS `subscription_type_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `subscription_type_settings` (
+  `subscription_type_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `type_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
+  `setting_value` mediumtext DEFAULT NULL,
   `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `subscription_type_settings_pkey` (`type_id`,`locale`,`setting_name`),
-  KEY `subscription_type_settings_type_id` (`type_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`subscription_type_setting_id`),
+  UNIQUE KEY `subscription_type_settings_unique` (`type_id`,`locale`,`setting_name`),
+  KEY `subscription_type_settings_type_id` (`type_id`),
+  CONSTRAINT `subscription_type_settings_type_id` FOREIGN KEY (`type_id`) REFERENCES `subscription_types` (`type_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about subscription types, including localized properties such as names.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2918,8 +3430,10 @@ CREATE TABLE `subscription_types` (
   `membership` smallint(6) NOT NULL DEFAULT 0,
   `disable_public_display` smallint(6) NOT NULL,
   `seq` double(8,2) NOT NULL,
-  PRIMARY KEY (`type_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`type_id`),
+  KEY `subscription_types_journal_id` (`journal_id`),
+  CONSTRAINT `subscription_types_journal_id` FOREIGN KEY (`journal_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Subscription types represent the kinds of subscriptions that a user or institution may have, such as an annual subscription or a discounted subscription.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2949,8 +3463,14 @@ CREATE TABLE `subscriptions` (
   `membership` varchar(40) DEFAULT NULL,
   `reference_number` varchar(40) DEFAULT NULL,
   `notes` text DEFAULT NULL,
-  PRIMARY KEY (`subscription_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`subscription_id`),
+  KEY `subscriptions_journal_id` (`journal_id`),
+  KEY `subscriptions_user_id` (`user_id`),
+  KEY `subscriptions_type_id` (`type_id`),
+  CONSTRAINT `subscriptions_journal_id` FOREIGN KEY (`journal_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `subscriptions_type_id` FOREIGN KEY (`type_id`) REFERENCES `subscription_types` (`type_id`) ON DELETE CASCADE,
+  CONSTRAINT `subscriptions_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='A list of subscriptions, both institutional and individual, for journals that use subscription-based publishing.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2978,8 +3498,9 @@ CREATE TABLE `temporary_files` (
   `original_file_name` varchar(127) DEFAULT NULL,
   `date_uploaded` datetime NOT NULL,
   PRIMARY KEY (`file_id`),
-  KEY `temporary_files_user_id` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `temporary_files_user_id` (`user_id`),
+  CONSTRAINT `temporary_files_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Temporary files, e.g. where files are kept during an upload process before they are moved somewhere more appropriate.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2992,33 +3513,173 @@ LOCK TABLES `temporary_files` WRITE;
 UNLOCK TABLES;
 
 --
--- Table structure for table `usage_stats_temporary_records`
+-- Table structure for table `usage_stats_institution_temporary_records`
 --
 
-DROP TABLE IF EXISTS `usage_stats_temporary_records`;
+DROP TABLE IF EXISTS `usage_stats_institution_temporary_records`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `usage_stats_temporary_records` (
-  `assoc_id` bigint(20) NOT NULL,
-  `assoc_type` bigint(20) NOT NULL,
-  `day` bigint(20) NOT NULL,
-  `entry_time` bigint(20) NOT NULL,
-  `metric` bigint(20) NOT NULL DEFAULT 1,
-  `country_id` varchar(2) DEFAULT NULL,
-  `region` varchar(2) DEFAULT NULL,
-  `city` varchar(255) DEFAULT NULL,
-  `load_id` varchar(255) NOT NULL,
-  `file_type` smallint(6) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+CREATE TABLE `usage_stats_institution_temporary_records` (
+  `usage_stats_temp_institution_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `load_id` varchar(50) NOT NULL,
+  `line_number` bigint(20) NOT NULL,
+  `institution_id` bigint(20) NOT NULL,
+  PRIMARY KEY (`usage_stats_temp_institution_id`),
+  UNIQUE KEY `usitr_load_id_line_number_institution_id` (`load_id`,`line_number`,`institution_id`),
+  KEY `usi_institution_id` (`institution_id`),
+  CONSTRAINT `usi_institution_id_foreign` FOREIGN KEY (`institution_id`) REFERENCES `institutions` (`institution_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Temporary stats for views and downloads from institutions based on visitor log records. Data in this table is provisional. See the metrics_* tables for compiled stats.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `usage_stats_temporary_records`
+-- Dumping data for table `usage_stats_institution_temporary_records`
 --
 
-LOCK TABLES `usage_stats_temporary_records` WRITE;
-/*!40000 ALTER TABLE `usage_stats_temporary_records` DISABLE KEYS */;
-/*!40000 ALTER TABLE `usage_stats_temporary_records` ENABLE KEYS */;
+LOCK TABLES `usage_stats_institution_temporary_records` WRITE;
+/*!40000 ALTER TABLE `usage_stats_institution_temporary_records` DISABLE KEYS */;
+/*!40000 ALTER TABLE `usage_stats_institution_temporary_records` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `usage_stats_total_temporary_records`
+--
+
+DROP TABLE IF EXISTS `usage_stats_total_temporary_records`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `usage_stats_total_temporary_records` (
+  `usage_stats_temp_total_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `date` datetime NOT NULL,
+  `ip` varchar(64) NOT NULL,
+  `user_agent` varchar(255) NOT NULL,
+  `line_number` bigint(20) NOT NULL,
+  `canonical_url` varchar(255) NOT NULL,
+  `issue_id` bigint(20) DEFAULT NULL,
+  `issue_galley_id` bigint(20) DEFAULT NULL,
+  `context_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) DEFAULT NULL,
+  `representation_id` bigint(20) DEFAULT NULL,
+  `submission_file_id` bigint(20) unsigned DEFAULT NULL,
+  `assoc_type` bigint(20) NOT NULL,
+  `file_type` smallint(6) DEFAULT NULL,
+  `country` varchar(2) NOT NULL DEFAULT '',
+  `region` varchar(3) NOT NULL DEFAULT '',
+  `city` varchar(255) NOT NULL DEFAULT '',
+  `load_id` varchar(50) NOT NULL,
+  PRIMARY KEY (`usage_stats_temp_total_id`),
+  KEY `usage_stats_total_temporary_records_issue_id` (`issue_id`),
+  KEY `usage_stats_total_temporary_records_issue_galley_id` (`issue_galley_id`),
+  KEY `usage_stats_total_temporary_records_context_id` (`context_id`),
+  KEY `usage_stats_total_temporary_records_submission_id` (`submission_id`),
+  KEY `usage_stats_total_temporary_records_representation_id` (`representation_id`),
+  KEY `usage_stats_total_temporary_records_submission_file_id` (`submission_file_id`),
+  KEY `ust_load_id_context_id_ip_ua_url` (`load_id`,`context_id`,`ip`,`user_agent`,`canonical_url`),
+  CONSTRAINT `ust_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `ust_issue_galley_id_foreign` FOREIGN KEY (`issue_galley_id`) REFERENCES `issue_galleys` (`galley_id`) ON DELETE CASCADE,
+  CONSTRAINT `ust_issue_id_foreign` FOREIGN KEY (`issue_id`) REFERENCES `issues` (`issue_id`) ON DELETE CASCADE,
+  CONSTRAINT `ust_representation_id_foreign` FOREIGN KEY (`representation_id`) REFERENCES `publication_galleys` (`galley_id`) ON DELETE CASCADE,
+  CONSTRAINT `ust_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`) ON DELETE CASCADE,
+  CONSTRAINT `ust_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Temporary stats totals based on visitor log records. Data in this table is provisional. See the metrics_* tables for compiled stats.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `usage_stats_total_temporary_records`
+--
+
+LOCK TABLES `usage_stats_total_temporary_records` WRITE;
+/*!40000 ALTER TABLE `usage_stats_total_temporary_records` DISABLE KEYS */;
+/*!40000 ALTER TABLE `usage_stats_total_temporary_records` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `usage_stats_unique_item_investigations_temporary_records`
+--
+
+DROP TABLE IF EXISTS `usage_stats_unique_item_investigations_temporary_records`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `usage_stats_unique_item_investigations_temporary_records` (
+  `usage_stats_temp_unique_item_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `date` datetime NOT NULL,
+  `ip` varchar(64) NOT NULL,
+  `user_agent` varchar(255) NOT NULL,
+  `line_number` bigint(20) NOT NULL,
+  `context_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) NOT NULL,
+  `representation_id` bigint(20) DEFAULT NULL,
+  `submission_file_id` bigint(20) unsigned DEFAULT NULL,
+  `assoc_type` bigint(20) NOT NULL,
+  `file_type` smallint(6) DEFAULT NULL,
+  `country` varchar(2) NOT NULL DEFAULT '',
+  `region` varchar(3) NOT NULL DEFAULT '',
+  `city` varchar(255) NOT NULL DEFAULT '',
+  `load_id` varchar(50) NOT NULL,
+  PRIMARY KEY (`usage_stats_temp_unique_item_id`),
+  KEY `usii_context_id` (`context_id`),
+  KEY `usii_submission_id` (`submission_id`),
+  KEY `usii_representation_id` (`representation_id`),
+  KEY `usii_submission_file_id` (`submission_file_id`),
+  KEY `usii_load_id_context_id_ip_ua` (`load_id`,`context_id`,`ip`,`user_agent`),
+  CONSTRAINT `usii_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `usii_representation_id_foreign` FOREIGN KEY (`representation_id`) REFERENCES `publication_galleys` (`galley_id`) ON DELETE CASCADE,
+  CONSTRAINT `usii_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`) ON DELETE CASCADE,
+  CONSTRAINT `usii_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Temporary stats on unique downloads based on visitor log records. Data in this table is provisional. See the metrics_* tables for compiled stats.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `usage_stats_unique_item_investigations_temporary_records`
+--
+
+LOCK TABLES `usage_stats_unique_item_investigations_temporary_records` WRITE;
+/*!40000 ALTER TABLE `usage_stats_unique_item_investigations_temporary_records` DISABLE KEYS */;
+/*!40000 ALTER TABLE `usage_stats_unique_item_investigations_temporary_records` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `usage_stats_unique_item_requests_temporary_records`
+--
+
+DROP TABLE IF EXISTS `usage_stats_unique_item_requests_temporary_records`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `usage_stats_unique_item_requests_temporary_records` (
+  `usage_stats_temp_item_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `date` datetime NOT NULL,
+  `ip` varchar(64) NOT NULL,
+  `user_agent` varchar(255) NOT NULL,
+  `line_number` bigint(20) NOT NULL,
+  `context_id` bigint(20) NOT NULL,
+  `submission_id` bigint(20) NOT NULL,
+  `representation_id` bigint(20) DEFAULT NULL,
+  `submission_file_id` bigint(20) unsigned DEFAULT NULL,
+  `assoc_type` bigint(20) NOT NULL,
+  `file_type` smallint(6) DEFAULT NULL,
+  `country` varchar(2) NOT NULL DEFAULT '',
+  `region` varchar(3) NOT NULL DEFAULT '',
+  `city` varchar(255) NOT NULL DEFAULT '',
+  `load_id` varchar(50) NOT NULL,
+  PRIMARY KEY (`usage_stats_temp_item_id`),
+  KEY `usir_context_id` (`context_id`),
+  KEY `usir_submission_id` (`submission_id`),
+  KEY `usir_representation_id` (`representation_id`),
+  KEY `usir_submission_file_id` (`submission_file_id`),
+  KEY `usir_load_id_context_id_ip_ua` (`load_id`,`context_id`,`ip`,`user_agent`),
+  CONSTRAINT `usir_context_id_foreign` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `usir_representation_id_foreign` FOREIGN KEY (`representation_id`) REFERENCES `publication_galleys` (`galley_id`) ON DELETE CASCADE,
+  CONSTRAINT `usir_submission_file_id_foreign` FOREIGN KEY (`submission_file_id`) REFERENCES `submission_files` (`submission_file_id`) ON DELETE CASCADE,
+  CONSTRAINT `usir_submission_id_foreign` FOREIGN KEY (`submission_id`) REFERENCES `submissions` (`submission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Temporary stats on unique views based on visitor log records. Data in this table is provisional. See the metrics_* tables for compiled stats.';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `usage_stats_unique_item_requests_temporary_records`
+--
+
+LOCK TABLES `usage_stats_unique_item_requests_temporary_records` WRITE;
+/*!40000 ALTER TABLE `usage_stats_unique_item_requests_temporary_records` DISABLE KEYS */;
+/*!40000 ALTER TABLE `usage_stats_unique_item_requests_temporary_records` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -3029,13 +3690,16 @@ DROP TABLE IF EXISTS `user_group_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `user_group_settings` (
+  `user_group_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_group_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  `setting_type` varchar(6) NOT NULL COMMENT '(bool|int|float|string|object)',
-  UNIQUE KEY `user_group_settings_pkey` (`user_group_id`,`locale`,`setting_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`user_group_setting_id`),
+  UNIQUE KEY `user_group_settings_unique` (`user_group_id`,`locale`,`setting_name`),
+  KEY `user_group_settings_user_group_id` (`user_group_id`),
+  CONSTRAINT `user_group_settings_user_group_id_foreign` FOREIGN KEY (`user_group_id`) REFERENCES `user_groups` (`user_group_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about user groups, including localized properties such as the name.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -3044,7 +3708,7 @@ CREATE TABLE `user_group_settings` (
 
 LOCK TABLES `user_group_settings` WRITE;
 /*!40000 ALTER TABLE `user_group_settings` DISABLE KEYS */;
-INSERT INTO `user_group_settings` VALUES (1,'en_US','name','Site Admin','string');
+INSERT INTO `user_group_settings` VALUES (1,1,'en','name','Site Admin');
 /*!40000 ALTER TABLE `user_group_settings` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -3056,14 +3720,18 @@ DROP TABLE IF EXISTS `user_group_stage`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `user_group_stage` (
+  `user_group_stage_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `context_id` bigint(20) NOT NULL,
   `user_group_id` bigint(20) NOT NULL,
   `stage_id` bigint(20) NOT NULL,
-  UNIQUE KEY `user_group_stage_pkey` (`context_id`,`user_group_id`,`stage_id`),
+  PRIMARY KEY (`user_group_stage_id`),
+  UNIQUE KEY `user_group_stage_unique` (`context_id`,`user_group_id`,`stage_id`),
   KEY `user_group_stage_context_id` (`context_id`),
   KEY `user_group_stage_user_group_id` (`user_group_id`),
-  KEY `user_group_stage_stage_id` (`stage_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `user_group_stage_stage_id` (`stage_id`),
+  CONSTRAINT `user_group_stage_context_id` FOREIGN KEY (`context_id`) REFERENCES `journals` (`journal_id`) ON DELETE CASCADE,
+  CONSTRAINT `user_group_stage_user_group_id` FOREIGN KEY (`user_group_id`) REFERENCES `user_groups` (`user_group_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Which stages of the editorial workflow the user_groups can access.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -3094,7 +3762,7 @@ CREATE TABLE `user_groups` (
   KEY `user_groups_user_group_id` (`user_group_id`),
   KEY `user_groups_context_id` (`context_id`),
   KEY `user_groups_role_id` (`role_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='All defined user roles in a context, such as Author, Reviewer, Section Editor and Journal Manager.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -3103,7 +3771,7 @@ CREATE TABLE `user_groups` (
 
 LOCK TABLES `user_groups` WRITE;
 /*!40000 ALTER TABLE `user_groups` DISABLE KEYS */;
-INSERT INTO `user_groups` VALUES (1,0,1,1,0,0,0);
+INSERT INTO `user_groups` VALUES (1,0,1,1,1,0,0);
 /*!40000 ALTER TABLE `user_groups` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -3115,10 +3783,16 @@ DROP TABLE IF EXISTS `user_interests`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `user_interests` (
+  `user_interest_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) NOT NULL,
   `controlled_vocab_entry_id` bigint(20) NOT NULL,
-  UNIQUE KEY `u_e_pkey` (`user_id`,`controlled_vocab_entry_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`user_interest_id`),
+  UNIQUE KEY `u_e_pkey` (`user_id`,`controlled_vocab_entry_id`),
+  KEY `user_interests_user_id` (`user_id`),
+  KEY `user_interests_controlled_vocab_entry_id` (`controlled_vocab_entry_id`),
+  CONSTRAINT `user_interests_controlled_vocab_entry_id_foreign` FOREIGN KEY (`controlled_vocab_entry_id`) REFERENCES `controlled_vocab_entries` (`controlled_vocab_entry_id`) ON DELETE CASCADE,
+  CONSTRAINT `user_interests_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Associates users with user interests (which are stored in the controlled vocabulary tables).';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -3138,17 +3812,17 @@ DROP TABLE IF EXISTS `user_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `user_settings` (
+  `user_setting_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) NOT NULL,
   `locale` varchar(14) NOT NULL DEFAULT '',
   `setting_name` varchar(255) NOT NULL,
-  `assoc_type` bigint(20) NOT NULL DEFAULT 0,
-  `assoc_id` bigint(20) NOT NULL DEFAULT 0,
-  `setting_value` text DEFAULT NULL,
-  `setting_type` varchar(6) NOT NULL,
-  UNIQUE KEY `user_settings_pkey` (`user_id`,`locale`,`setting_name`,`assoc_type`,`assoc_id`),
+  `setting_value` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`user_setting_id`),
+  UNIQUE KEY `user_settings_unique` (`user_id`,`locale`,`setting_name`),
   KEY `user_settings_user_id` (`user_id`),
-  KEY `user_settings_locale_setting_name_index` (`setting_name`,`locale`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `user_settings_locale_setting_name_index` (`setting_name`,`locale`),
+  CONSTRAINT `user_settings_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='More data about users, including localized properties like their name and affiliation.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -3157,7 +3831,7 @@ CREATE TABLE `user_settings` (
 
 LOCK TABLES `user_settings` WRITE;
 /*!40000 ALTER TABLE `user_settings` DISABLE KEYS */;
-INSERT INTO `user_settings` VALUES (1,'en_US','familyName',0,0,'admin','string'),(1,'en_US','givenName',0,0,'admin','string');
+INSERT INTO `user_settings` VALUES (1,1,'en','familyName','admin'),(2,1,'en','givenName','admin');
 /*!40000 ALTER TABLE `user_settings` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -3169,12 +3843,16 @@ DROP TABLE IF EXISTS `user_user_groups`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `user_user_groups` (
+  `user_user_group_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_group_id` bigint(20) NOT NULL,
   `user_id` bigint(20) NOT NULL,
-  UNIQUE KEY `user_user_groups_pkey` (`user_group_id`,`user_id`),
+  PRIMARY KEY (`user_user_group_id`),
+  UNIQUE KEY `user_user_groups_unique` (`user_group_id`,`user_id`),
   KEY `user_user_groups_user_group_id` (`user_group_id`),
-  KEY `user_user_groups_user_id` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  KEY `user_user_groups_user_id` (`user_id`),
+  CONSTRAINT `user_user_groups_user_group_id_foreign` FOREIGN KEY (`user_group_id`) REFERENCES `user_groups` (`user_group_id`) ON DELETE CASCADE,
+  CONSTRAINT `user_user_groups_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Maps users to their assigned user_groups.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -3183,7 +3861,7 @@ CREATE TABLE `user_user_groups` (
 
 LOCK TABLES `user_user_groups` WRITE;
 /*!40000 ALTER TABLE `user_user_groups` DISABLE KEYS */;
-INSERT INTO `user_user_groups` VALUES (1,1);
+INSERT INTO `user_user_groups` VALUES (1,1,1);
 /*!40000 ALTER TABLE `user_user_groups` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -3204,12 +3882,12 @@ CREATE TABLE `users` (
   `mailing_address` varchar(255) DEFAULT NULL,
   `billing_address` varchar(255) DEFAULT NULL,
   `country` varchar(90) DEFAULT NULL,
-  `locales` varchar(255) DEFAULT NULL,
+  `locales` varchar(255) NOT NULL DEFAULT '[]',
   `gossip` text DEFAULT NULL,
   `date_last_email` datetime DEFAULT NULL,
   `date_registered` datetime NOT NULL,
   `date_validated` datetime DEFAULT NULL,
-  `date_last_login` datetime NOT NULL,
+  `date_last_login` datetime DEFAULT NULL,
   `must_change_password` smallint(6) DEFAULT NULL,
   `auth_id` bigint(20) DEFAULT NULL,
   `auth_str` varchar(255) DEFAULT NULL,
@@ -3219,7 +3897,7 @@ CREATE TABLE `users` (
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `users_username` (`username`),
   UNIQUE KEY `users_email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='All registered users, including authentication data and profile data.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -3228,7 +3906,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'admin','$2y$10$y.8rrEt7sdXbs6LtljuokObjABXOTieP.1SPRTejmPDcrvm5Id66W','admin@example.org',NULL,NULL,NULL,NULL,NULL,'',NULL,NULL,'2025-06-30 22:02:14',NULL,'2025-06-30 22:02:14',0,NULL,NULL,0,NULL,1);
+INSERT INTO `users` VALUES (1,'admin','$2y$10$Ka5LKIPfY026OTYRJ9MNfuX/bGTcrdaupNKU9xdBwiqpZmnguJDcW','admin@example.org',NULL,NULL,NULL,NULL,NULL,'[]',NULL,NULL,'2025-06-02 17:43:58',NULL,'2025-06-02 10:44:29',NULL,NULL,NULL,0,NULL,1);
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -3240,19 +3918,21 @@ DROP TABLE IF EXISTS `versions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `versions` (
+  `version_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `major` int(11) NOT NULL DEFAULT 0 COMMENT 'Major component of version number, e.g. the 2 in OJS 2.3.8-0',
   `minor` int(11) NOT NULL DEFAULT 0 COMMENT 'Minor component of version number, e.g. the 3 in OJS 2.3.8-0',
   `revision` int(11) NOT NULL DEFAULT 0 COMMENT 'Revision component of version number, e.g. the 8 in OJS 2.3.8-0',
   `build` int(11) NOT NULL DEFAULT 0 COMMENT 'Build component of version number, e.g. the 0 in OJS 2.3.8-0',
   `date_installed` datetime NOT NULL,
   `current` smallint(6) NOT NULL DEFAULT 0 COMMENT '1 iff the version entry being described is currently active. This permits the table to store past installation history for forensic purposes.',
-  `product_type` varchar(30) DEFAULT NULL COMMENT 'Describes the type of product this row describes, e.g. "plugins.generic" (for a generic plugin) or "core" for the application itelf',
+  `product_type` varchar(30) DEFAULT NULL COMMENT 'Describes the type of product this row describes, e.g. "plugins.generic" (for a generic plugin) or "core" for the application itself',
   `product` varchar(30) DEFAULT NULL COMMENT 'Uniquely identifies the product this version row describes, e.g. "ojs2" for OJS 2.x, "languageToggle" for the language toggle block plugin, etc.',
   `product_class_name` varchar(80) DEFAULT NULL COMMENT 'Specifies the class name associated with this product, for plugins, or the empty string where not applicable.',
   `lazy_load` smallint(6) NOT NULL DEFAULT 0 COMMENT '1 iff the row describes a lazy-load plugin; 0 otherwise',
   `sitewide` smallint(6) NOT NULL DEFAULT 0 COMMENT '1 iff the row describes a site-wide plugin; 0 otherwise',
-  UNIQUE KEY `versions_pkey` (`product_type`,`product`,`major`,`minor`,`revision`,`build`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+  PRIMARY KEY (`version_id`),
+  UNIQUE KEY `versions_unique` (`product_type`,`product`,`major`,`minor`,`revision`,`build`)
+) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci COMMENT='Describes the installation and upgrade version history for the application and all installed plugins.';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -3261,7 +3941,7 @@ CREATE TABLE `versions` (
 
 LOCK TABLES `versions` WRITE;
 /*!40000 ALTER TABLE `versions` DISABLE KEYS */;
-INSERT INTO `versions` VALUES (1,0,0,0,'2025-06-30 22:02:15',1,'plugins.metadata','dc11','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.blocks','information','InformationBlockPlugin',1,0),(1,1,0,0,'2025-06-30 22:02:15',1,'plugins.blocks','subscription','SubscriptionBlockPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.blocks','developedBy','DevelopedByBlockPlugin',1,0),(1,0,1,0,'2025-06-30 22:02:15',1,'plugins.blocks','browse','BrowseBlockPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.blocks','languageToggle','LanguageToggleBlockPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.blocks','makeSubmission','MakeSubmissionBlockPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.gateways','resolver','',0,0),(1,0,1,0,'2025-06-30 22:02:15',1,'plugins.generic','pdfJsViewer','PdfJsViewerPlugin',1,0),(1,2,0,0,'2025-06-30 22:02:15',1,'plugins.generic','customBlockManager','CustomBlockManagerPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','usageEvent','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','dublinCoreMeta','DublinCoreMetaPlugin',1,0),(0,1,0,0,'2025-06-30 22:02:15',1,'plugins.generic','citationStyleLanguage','CitationStyleLanguagePlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','recommendByAuthor','RecommendByAuthorPlugin',1,1),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','usageStats','UsageStatsPlugin',0,1),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','googleAnalytics','GoogleAnalyticsPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','htmlArticleGalley','HtmlArticleGalleyPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','driver','DRIVERPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','tinymce','TinyMCEPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','recommendBySimilarity','RecommendBySimilarityPlugin',1,1),(1,1,0,0,'2025-06-30 22:02:15',1,'plugins.generic','googleScholar','GoogleScholarPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','webFeed','WebFeedPlugin',1,0),(1,0,1,0,'2025-06-30 22:02:15',1,'plugins.generic','lensGalley','LensGalleyPlugin',1,0),(1,2,0,0,'2025-06-30 22:02:15',1,'plugins.generic','staticPages','StaticPagesPlugin',1,0),(1,2,0,0,'2025-06-30 22:02:15',1,'plugins.generic','acron','AcronPlugin',1,1),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.generic','announcementFeed','AnnouncementFeedPlugin',1,0),(1,1,3,14,'2025-06-30 22:02:15',1,'plugins.generic','orcidProfile','OrcidProfilePlugin',1,0),(1,1,0,0,'2025-06-30 22:02:15',1,'plugins.importexport','doaj','',0,0),(2,1,0,0,'2025-06-30 22:02:15',1,'plugins.importexport','crossref','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.importexport','users','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.importexport','pubmed','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.importexport','native','',0,0),(2,0,0,0,'2025-06-30 22:02:15',1,'plugins.importexport','datacite','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.oaiMetadataFormats','marc','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.oaiMetadataFormats','marcxml','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.oaiMetadataFormats','rfc1807','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.oaiMetadataFormats','dc','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.paymethod','paypal','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.paymethod','manual','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.pubIds','doi','DOIPubIdPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.pubIds','urn','URNPubIdPlugin',1,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.reports','views','',0,0),(2,0,0,0,'2025-06-30 22:02:15',1,'plugins.reports','reviewReport','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.reports','articles','',0,0),(1,1,0,0,'2025-06-30 22:02:15',1,'plugins.reports','counterReport','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.reports','subscriptions','',0,0),(1,0,0,0,'2025-06-30 22:02:15',1,'plugins.themes','default','DefaultThemePlugin',1,0),(3,3,0,21,'2025-06-30 22:02:08',1,'core','ojs2','',0,1);
+INSERT INTO `versions` VALUES (1,1,0,0,0,'2025-06-02 17:43:58',1,'plugins.metadata','dc11','',0,0),(2,1,0,0,0,'2025-06-02 17:43:58',1,'plugins.blocks','information','InformationBlockPlugin',1,0),(3,1,1,0,0,'2025-06-02 17:43:58',1,'plugins.blocks','subscription','SubscriptionBlockPlugin',1,0),(4,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.blocks','developedBy','DevelopedByBlockPlugin',1,0),(5,1,0,1,0,'2025-06-02 17:43:59',1,'plugins.blocks','browse','BrowseBlockPlugin',1,0),(6,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.blocks','languageToggle','LanguageToggleBlockPlugin',1,0),(7,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.blocks','makeSubmission','MakeSubmissionBlockPlugin',1,0),(8,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.gateways','resolver','',0,0),(9,1,0,1,0,'2025-06-02 17:43:59',1,'plugins.generic','pdfJsViewer','PdfJsViewerPlugin',1,0),(10,1,2,0,0,'2025-06-02 17:43:59',1,'plugins.generic','customBlockManager','CustomBlockManagerPlugin',1,0),(11,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','usageEvent','',0,0),(12,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','dublinCoreMeta','DublinCoreMetaPlugin',1,0),(13,3,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','crossref','',0,0),(14,0,1,0,0,'2025-06-02 17:43:59',1,'plugins.generic','citationStyleLanguage','CitationStyleLanguagePlugin',1,0),(15,1,0,0,1,'2025-06-02 17:43:59',1,'plugins.generic','recommendByAuthor','RecommendByAuthorPlugin',1,1),(16,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','googleAnalytics','GoogleAnalyticsPlugin',1,0),(17,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','htmlArticleGalley','HtmlArticleGalleyPlugin',1,0),(18,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','driver','DRIVERPlugin',1,0),(19,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','tinymce','TinyMCEPlugin',1,0),(20,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','recommendBySimilarity','RecommendBySimilarityPlugin',1,1),(21,1,1,0,0,'2025-06-02 17:43:59',1,'plugins.generic','googleScholar','GoogleScholarPlugin',1,0),(22,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','webFeed','WebFeedPlugin',1,0),(23,1,0,1,0,'2025-06-02 17:43:59',1,'plugins.generic','lensGalley','LensGalleyPlugin',1,0),(24,2,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','datacite','',0,0),(25,1,2,0,0,'2025-06-02 17:43:59',1,'plugins.generic','staticPages','StaticPagesPlugin',1,0),(26,1,3,0,0,'2025-06-02 17:43:59',1,'plugins.generic','acron','AcronPlugin',1,1),(27,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.generic','announcementFeed','AnnouncementFeedPlugin',1,0),(28,1,3,4,8,'2025-06-02 17:43:59',1,'plugins.generic','orcidProfile','OrcidProfilePlugin',1,0),(29,1,1,0,0,'2025-06-02 17:43:59',1,'plugins.importexport','doaj','',0,0),(30,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.importexport','users','',0,0),(31,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.importexport','pubmed','',0,0),(32,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.importexport','native','',0,0),(33,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.oaiMetadataFormats','marc','',0,0),(34,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.oaiMetadataFormats','marcxml','',0,0),(35,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.oaiMetadataFormats','rfc1807','',0,0),(36,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.oaiMetadataFormats','dc','',0,0),(37,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.paymethod','paypal','',0,0),(38,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.paymethod','manual','',0,0),(39,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.pubIds','urn','URNPubIdPlugin',1,0),(40,2,0,1,0,'2025-06-02 17:43:59',1,'plugins.reports','reviewReport','',0,0),(41,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.reports','articles','',0,0),(42,1,1,0,0,'2025-06-02 17:43:59',1,'plugins.reports','counterReport','',0,0),(43,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.reports','subscriptions','',0,0),(44,1,0,0,0,'2025-06-02 17:43:59',1,'plugins.themes','default','DefaultThemePlugin',1,0),(45,3,4,0,9,'2025-06-02 17:43:40',1,'core','ojs2','',0,1);
 /*!40000 ALTER TABLE `versions` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -3274,4 +3954,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-06-30 15:08:38
+-- Dump completed on 2025-06-02 10:48:07
