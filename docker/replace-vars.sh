@@ -26,5 +26,8 @@ env | grep -E '^(MYSQL_|OJS_)' | while IFS='=' read -r key value; do
     sed -i "s|%${key}%|${escaped_value}|g" "$temp_file"
 done
 
+# Set up the app key if it hasn't already been set up
+php ./lib/pkp/tools/appKey.php generate
+
 # Move the processed file to the output location
 mv "$temp_file" "$output_file"
