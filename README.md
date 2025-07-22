@@ -13,7 +13,7 @@ consistency as possible across environments. No local code is copied into the
 image other than "wrapper" stuff like Apache overrides, the base app
 configuration template, etc.
 
-The database needs to be initialized using the `init.sql` file, or else you'll
+The database needs to be initialized using the `init.sql.gz` file, or else you'll
 have to run the installer, which means first modifying your OJS config directly
 in the container / volume. See the config section below for details on editing
 the configuration for this exact situation.
@@ -80,13 +80,13 @@ However, there are cases where direct config edits are necessary. In these
 situations, your best bet is either an in-container edit (e.g., with `sed`), or
 copying config out of the volume, editing it, and then copying it back in.
 
-If you want to use the web installer rather than the included `init.sql` (for
-production you may not want to our "admin" user): start the stack, edit the
-in-container config to specify `installed = Off`, then browse to the app. The
-web installer will let you create a new user and set up various configuration
-values. Note that you'll have to edit the configuration manually a second time,
-or else change the in-container permission setup. For security we make the
-config file read-only.
+If you want to use the web installer rather than the included `init.sql.gz`
+(for production you may not want to our "admin" user): start the stack, edit
+the in-container config to specify `installed = Off`, then browse to the app.
+The web installer will let you create a new user and set up various
+configuration values. Note that you'll have to edit the configuration manually
+a second time, or else change the in-container permission setup. For security
+we make the config file read-only.
 
 ### Web
 
