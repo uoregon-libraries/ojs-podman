@@ -71,6 +71,35 @@ etc. can be critical to making your project work well across environments.
 [3]: <compose.override-example.yml>
 [4]: <https://docs.docker.com/compose/how-tos/multiple-compose-files/>
 
+### Gotchas
+
+#### Internal server error when you have multiple `allowed_hosts`
+
+If you need multiple values for `allowed_hosts`, make sure you keep your YAML
+formatting exactly like the compose override example we provide. For some
+reason, when you have multiple allowed hosts, you *have* to make sure OJS gets
+a quoted value. This means more quotes than you expect, and escaping of quotes
+within quotes....
+
+Because of how YAML interprets quoted values, `foo: 'bar'` results in `foo`
+being set to three characters, `bar`, and the surrounding quotes are "lost".
+When we replace this in a config file, we get something like `foo = bar` rather
+than `foo = 'bar'`. To ensure you keep the single quotes, you have to "double
+quote" the value in yaml, e.g., `foo: "'bar'"`.
+
+For some reason, OJS expects a quoted value for `allowed_hosts` *even though it
+works fine when allowed hosts is a single element*. So while `allowed_hosts =
+["localhost"]` is fine, `allowed_hosts = ["localhost", "127.0.0.1"]` is not.
+You have to have the final config setup look like `allowed_hosts =
+'["localhost", "127.0.0.1"]'`.
+
+If you get an internal server error that makes no sense, check the logs. If you
+see something like `TypeError: array_map(): Argument #2 ($array) must be of
+type array` or the error is from a host check (e.g., seeing
+`lib/pkp/classes/security/authorization/AllowedHostsPolicy.php` in the
+message), you probably need to carefully re-check the environment setting in
+your compose override.
+
 ### Modifying Config
 
 You should usually be able to set your compose environment variables, which
