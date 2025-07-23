@@ -73,6 +73,27 @@ etc. can be critical to making your project work well across environments.
 
 ### Gotchas
 
+#### You have to kill the config volume sometimes
+
+When the config doesn't get set up properly the first time, you might go and
+change the environment vars and restart the stack, then wonder why your config
+is *still broken*.
+
+As mentioned previously, config variable replacements only happen once. If you
+need to fix config, you have to enter the container and edit it manually or
+else destroy the volume and let it be recreated.
+
+This should go without saying, but it's easy to forget the config situation. Or
+so I hear. Obviously *I* wouldn't forget.
+
+#### Valid app key warning
+
+>  [WARNING] A valid APP Key already set in the config file. To overwrite, pass
+>            the flag --force with the command.
+
+Ignore this. It's just letting you know the container's config is already set
+up with an app key.
+
 #### Internal server error when you have multiple `allowed_hosts`
 
 If you need multiple values for `allowed_hosts`, make sure you keep your YAML
