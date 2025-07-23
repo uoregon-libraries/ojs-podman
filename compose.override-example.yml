@@ -10,7 +10,7 @@ services:
   web:
     environment:
       OJS_BASE_URL: "http://localhost:8080"
-      OJS_ALLOWED_HOSTS: '["localhost"]'
+      OJS_ALLOWED_HOSTS: "'[\"localhost\", \"127.0.0.1\"]'"
       OJS_SANDBOX: "On"
       OJS_SALT: "foo"
       OJS_API_KEY_SECRET: "bar"
