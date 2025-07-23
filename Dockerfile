@@ -53,6 +53,7 @@ RUN chmod 644 .htaccess
 
 # Set up our custom entrypoint and configgy stuff
 COPY docker/config/config-template.ini /config-template.ini
+COPY docker/wait_for_database /usr/local/bin/
 COPY docker/entrypoint.sh /entrypoint.sh
 COPY docker/replace-vars.sh /replace-vars.sh
 CMD ["apache2-foreground"]
