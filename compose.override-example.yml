@@ -5,12 +5,13 @@
 #
 # For a production setup, you might not use the db service, in which case you'd
 # have to specify the database env vars here to point to an external database,
-# and you'd want to set things like HTTPS to "on", change ports, etc.
+# and you'd want to set things like HTTPS to "on", turn off sandbox, etc.
 services:
   web:
     environment:
       OJS_BASE_URL: "http://localhost:8080"
-      OJS_ALLOWED_HOSTS: '["localhost"]'
+      OJS_ALLOWED_HOSTS: "'[\"localhost\", \"127.0.0.1\"]'"
+      OJS_SANDBOX: "On"
       OJS_SALT: "foo"
       OJS_API_KEY_SECRET: "bar"
       HTTPS: "off"
@@ -23,4 +24,4 @@ services:
     ports:
       - 3306:3306
     volumes:
-      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/init.sql.gz:/docker-entrypoint-initdb.d/init.sql.gz
