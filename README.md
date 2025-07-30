@@ -71,6 +71,31 @@ etc. can be critical to making your project work well across environments.
 [3]: <compose.override-example.yml>
 [4]: <https://docs.docker.com/compose/how-tos/multiple-compose-files/>
 
+### Config
+
+You should set your compose environment variables, which then get injected into
+the config file. This is your *starting point*. Once you have OJS up and
+running, you have to decide what else you want to do with configuration. For
+development, you shouldn't need to modify it further, but in production you
+will need to look at the settings and choose which need to be changed. You'll
+need to look at the OJS documentation for this; a config guide is out of scope
+here.
+
+In situations where you need to edit config, again **first** start with the
+environment variables so the app's starting state is going to work. Make sure
+your app starts and seems to be correct. *Then* edit the file. Your best bet is
+either an in-container edit (e.g., with `sed`), mounting the config volume
+somewhere temporarily to edit it, or copying config out of the volume, editing
+it, and then copying it back in.
+
+If you want to use the web installer, you can do that instead of using the
+included `init.sql.gz` or the config builder. Don't mount `init.sql.gz` in your
+compose override, start the stack, then edit the in-container config to changed
+`installed = On` to `installed = Off`. Modify the config to be writeable by all
+users, run the web installer, adjust any further config settings you need (such
+as email), and then change the config file's permissions so it is no longer
+writeable by the Apache user.
+
 ### Gotchas
 
 #### You have to kill the config volume sometimes
@@ -120,23 +145,6 @@ type array` or the error is from a host check (e.g., seeing
 `lib/pkp/classes/security/authorization/AllowedHostsPolicy.php` in the
 message), you probably need to carefully re-check the environment setting in
 your compose override.
-
-### Modifying Config
-
-You should usually be able to set your compose environment variables, which
-then get injected into the config file, and not have to edit config manually.
-
-However, there are cases where direct config edits are necessary. In these
-situations, your best bet is either an in-container edit (e.g., with `sed`), or
-copying config out of the volume, editing it, and then copying it back in.
-
-If you want to use the web installer rather than the included `init.sql.gz`
-(for production you may not want to our "admin" user): start the stack, edit
-the in-container config to specify `installed = Off`, then browse to the app.
-The web installer will let you create a new user and set up various
-configuration values. Note that you'll have to edit the configuration manually
-a second time, or else change the in-container permission setup. For security
-we make the config file read-only.
 
 ### Web
 
