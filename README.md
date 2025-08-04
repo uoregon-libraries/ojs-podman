@@ -2,39 +2,22 @@
 
 (Technically podman or docker compose work)
 
-This project builds a docker image for OJS v3.3.0, downloading a stable version
-of their production-ready app, and providing configuration for running in
+This project builds a docker image for OJS, downloading a stable version of
+their production-ready app, and providing configuration for running in
 production or locally.
 
 ## Architecture / Overview
 
 The docker image definition (`Dockerfile`) is set up to give us as much
 consistency as possible across environments. No local code is copied into the
-image other than "wrapper" stuff like Apache overrides, the base app
-configuration template, etc.
-
-The database needs to be initialized using the `init.sql.gz` file, or else you'll
-have to run the installer, which means first modifying your OJS config directly
-in the container / volume. See the config section below for details on editing
-the configuration for this exact situation.
-
-When containers are started up, because the image defines a new entrypoint,
-there's a one-time step which will swap configuration variables from the
-container's environment. You can define these in your compose override, and you
-should do this explicitly on a per-environment basis.
-
-*Note that this substitution happens only once*. After the first startup, your
-settings can only be changed by editing the configuration file directly. This
-is something we hope to improve in time, but it becomes tricky as there are
-cases where the file needs to be edited manually, and those edits need to be
-preserved.
+image other than "wrapper" stuff like Apache overrides, entrypoint script, etc.
 
 The "config" volume looks weird, but is done this way in order to keep the
 config totally separated from the code: it starts as an empty directory, and on
-first run gets the variable-replaced configuration file added to it. That file
-is then symlinked into the running container's OJS code directory. This allows
-OJS to read the file, while it lives in a totally isolated volume, making
-backing up and restoring easier, as well as mounting it for editing.
+first run gets the base configuration file added to it. That file is then
+symlinked into the running container's OJS code directory. This allows OJS to
+read the file, while it lives in a totally isolated volume, making backing up
+and restoring easier, as well as mounting it for editing.
 
 ## Setup
 
@@ -45,7 +28,7 @@ services with overrides on a per-service basis, relying heavily on the compose
 spec's "include" directive. This approach makes it easier to set up systems
 that rely on the same base services, but have small tweaks per environment.
 
-**Major caveat, though**: it turns out some versions (maybe most?) of
+**Major caveat, though**: it turns out some versions (maybe all) of
 podman-compose do *not* support the "include" directive! If using podman,
 you'll want to either set up the compose files manually, or use `docker compose
 config -f ...` to have a flat compose setup generated for you.
@@ -56,10 +39,6 @@ very simple setup for combining the OJS and DB service definitions. There's
 also an [example compose override][3] for specifying per-environment settings
 if you want to have a base `compose.yml` that defines a core setup you reuse
 across environments.
-
-**Read the override example carefully!** Adjust settings as needed for your
-environment. The various environment variables should be fairly obvious, but
-they essentially just replace values in the config file, as mentioned above.
 
 We strongly recommend familiarizing yourself not only with the [compose
 spec][1], but also with the details of [using multiple compose files][4].
@@ -73,84 +52,45 @@ etc. can be critical to making your project work well across environments.
 
 ### Config
 
-You should set your compose environment variables, which then get injected into
-the config file. This is your *starting point*. Once you have OJS up and
-running, you have to decide what else you want to do with configuration. For
-development, you shouldn't need to modify it further, but in production you
-will need to look at the settings and choose which need to be changed. You'll
-need to look at the OJS documentation for this; a config guide is out of scope
-here.
+The first time you start the "web" container, a config file will be created
+from the OJS config template file. If you don't modify it, you'll be presented
+with the OJS web installer, which will get some basic settings written for you.
+Some settings have to be set to hard-coded values for the compose setup to run:
 
-In situations where you need to edit config, again **first** start with the
-environment variables so the app's starting state is going to work. Make sure
-your app starts and seems to be correct. *Then* edit the file. Your best bet is
-either an in-container edit (e.g., with `sed`), mounting the config volume
+- The "directory for uploads" must be `/var/local/ojs-files`
+- Database settings should be as follows (for production you should use compose
+  overrides and have a secure password, or else be 100% sure your database
+  service is locked down):
+  - Host: "db"
+  - Username: "ojs"
+  - Password: "ojs"
+  - Database name: "ojs"
+
+You generally still need to edit the config file after it's been created, as
+the web installer skips a lot of critical things. You need to examine all
+values carefully. Here are some settings that are confusing / not obvious they
+have to be set:
+
+- `app_key`: This is set by the web installer, but if you aren't using that
+  (e.g., you're upgrading from 3.3 or something), you have to generate an app
+  key via the OJS tool:
+  - Start the stack
+  - Enter the running "web" container
+  - In the container, execute `php ./lib/pkp/tools/appKey.php generate`
+- `installed`: If you don't plan to use the web installer, and will manage all
+  config yourself, this must be "Off".
+- `restful_urls`: You usually want this set to "On": the provided docker image
+  sets up Apache to work with this setting.
+- `trust_x_forwarded_for`: Should be "On" to get the proper client IP address
+  through the docker stack.
+- `files_dir`: The web installer calls this "directory for uploads". This
+  *must* be set to `/var/local/ojs-files`. Normally the web installer will set
+  this for you, but it's worth double-checking the value.
+- `public_files_dir`: This *must* be set to `public`.
+
+Editing the config file is most easily done by mounting the config volume
 somewhere temporarily to edit it, or copying config out of the volume, editing
 it, and then copying it back in.
-
-If you want to use the web installer, you can do that instead of using the
-included `init.sql.gz` or the config builder. Don't mount `init.sql.gz` in your
-compose override, start the stack, then edit the in-container config to changed
-`installed = On` to `installed = Off`. Modify the config to be writeable by all
-users, run the web installer, adjust any further config settings you need (such
-as email), and then change the config file's permissions so it is no longer
-writeable by the Apache user.
-
-### Gotchas
-
-#### You have to kill the config volume sometimes
-
-When the config doesn't get set up properly the first time, you might go and
-change the environment vars and restart the stack, then wonder why your config
-is *still broken*.
-
-As mentioned previously, config variable replacements only happen once. If you
-need to fix config, you have to enter the container and edit it manually or
-else destroy the volume and let it be recreated.
-
-This should go without saying, but it's easy to forget the config situation. Or
-so I hear. Obviously *I* wouldn't forget.
-
-#### Valid app key warning
-
->  [WARNING] A valid APP Key already set in the config file. To overwrite, pass
->            the flag --force with the command.
-
-Ignore this. It's just letting you know the container's config is already set
-up with an app key.
-
-#### Internal server error when you have multiple `allowed_hosts`
-
-If you need multiple values for `allowed_hosts`, make sure you keep your YAML
-formatting exactly like the compose override example we provide. For some
-reason, when you have multiple allowed hosts, you *have* to make sure OJS gets
-a quoted value. This means more quotes than you expect, and escaping of quotes
-within quotes....
-
-Because of how YAML interprets quoted values, `foo: 'bar'` results in `foo`
-being set to three characters, `bar`, and the surrounding quotes are "lost".
-When we replace this in a config file, we get something like `foo = bar` rather
-than `foo = 'bar'`. To ensure you keep the single quotes, you have to "double
-quote" the value in yaml, e.g., `foo: "'bar'"`.
-
-For some reason, OJS expects a quoted value for `allowed_hosts` *even though it
-works fine when allowed hosts is a single element*. So while `allowed_hosts =
-["localhost"]` is fine, `allowed_hosts = ["localhost", "127.0.0.1"]` is not.
-You have to have the final config setup look like `allowed_hosts =
-'["localhost", "127.0.0.1"]'`.
-
-If you get an internal server error that makes no sense, check the logs. If you
-see something like `TypeError: array_map(): Argument #2 ($array) must be of
-type array` or the error is from a host check (e.g., seeing
-`lib/pkp/classes/security/authorization/AllowedHostsPolicy.php` in the
-message), you probably need to carefully re-check the environment setting in
-your compose override.
-
-### Web
-
-Start up the "web" container and browse to the login page (`/index/login`). If
-you used the init SQL, log in as "admin" with password "admin", and immediately
-**change your password**.
 
 ### Development
 
@@ -164,22 +104,10 @@ etc.
 
 #### Upgrading
 
-Upgrading OJS is a bit trickier than it sounds if the purpose of the upgrade is
-to get this repository onto a new version of OJS. (If you're upgrading a
-production setup, that's a very different process, and not yet documented
-here). This repo must always be usable as a new, empty OJS instance that can be
-started up with minimal fuss, and reflects the latest LTS version of OJS.
-
 To do an upgrade, there are several manual steps to take:
 
-- Config:
-  - Copy the *unmodified* config template from the new version over the top of
-    `docker/config/config-template.ini`. Do not modify this file yet.
-  - Add and commit in the unmodified config file so that it's easy to see
-    exactly what config looked like at the start of the upgrade.
-  - Look briefly over the changes so you have an idea what might have to happen
-    to our docker setup once we're done installing.
-  - Again: **do not** modify this config file *in any way*!
+- Config: Look at all differences from the old config template to the new. Make
+  sure the above "Config" section is updated.
 - Container / image reset:
   - Check the PHP version with what the new OJS requires. Modify the Docker
     `FROM` line if it's changed.
@@ -187,88 +115,14 @@ To do an upgrade, there are several manual steps to take:
   - Rebuild the docker image (e.g., `podman compose build`). Consider pulling
     the latest PHP image first, as well as using `--no-cache` to ensure a fully
     clean and updated build.
-  - If you're mounting `init.sql.gz` into the mariadb container, undo that
-    temporarily. We want a clean database so we can provide a new init.sql.
-  - Remove your current dev volumes, e.g., `podman compose down -v`.
-- Start the stack and make the config file writeable:
-  - `podman compose up -d web`
-  - `podman compose exec web bash`
-  - `chmod 777 /var/local/config/config.inc.php`
-  - *The installer will claim this is optional, but on some OJS versions, it is
-    definitely required.*
-- Web install:
-  - Visit the app URL. The installation screen should show up.
-  - Settings:
-    - Set administrator to "admin" with password "admin".
-    - Use a dummy email like `admin@example.org`.
-    - Ignore locales and timezone.
-    - Change upload location to `/var/local/ojs-files`.
-    - Database settings (assuming you are using `db.compose.yml`):
-      - Host: `db`
-      - Username: `ojs`
-      - Password: `ojs`
-      - Database name: `ojs`
-  - Disable "Beacon".
-  - Press the install button. Wait a bit. There may not be any indication that
-    it's working, but it is.
-  - If all goes well, you'll see a success page. If it doesn't, you're in for a
-    fun day of debugging! The app won't log errors beyond whatever causes PHP
-    to crash. Enjoy!
-- Get the new config file into the repo:
-  - Copy the file out of the container, e.g., `docker compose exec web cat
-    /var/local/config/config.inc.php > docker/config/config-template.ini`
-  - Look over the changes to make sure everything looks good. No major changes
-    should have happened, since the installer should only be setting up values,
-    not adding/removing keys.
-  - Now start the process of re-setting things to allow for variable
-    replacements. This can be a pain: you need to understand what changed from
-    one version to the next, as well as what config settings we will want to
-    make configurable in the compose setup.
-    - Compare the previous version's base config with the new version to see
-      what's changed.
-    - In some cases a setting is no longer needed, and the compose files should
-      be adjusted. In some cases a new setting may be needed.
-  - If we're in production, we'll need to document a strategy for migrating the
-    config file. This is still a big unknown, but it will be critical to figure
-    out once we do our first post-go-live upgrade.
-  - Add and commit the updated config file. Do *not* merge this commit with the
-    above commit. We should always be able to see the difference between two
-    OJS versions' vanilla configs as well as the difference between the vanilla
-    config and our modifications.
-- Generate a new `init.sql.gz` file:
-  - `mysqldump -h127.0.0.1 -uojs -pojs ojs | gz -9 > docker/init.sql.gz`
-- Restart things to verify:
-  - Take down the stack, and delete all volumes so you can test a fresh stack.
-    Make sure you do this *only after* you've exported the SQL!
-  - Re-add `init.sql.gz` to your compose override so your db will be
-    initialized when you restart.
-  - Rebuild the docker image now that you have the config and SQL updated,
-    otherwise you'll probably waste two hours trying to figure out why you did
-    all the things above and nothing works. Or so I've heard.
-  - Start up the stack. You should be able to log into things as normal.
+  - Delete all volumes. Remember this is for *dev upgrades*, **not**
+    production!
+- Do the web install and you should be set.
 
-**Important!** As mentioned above, *make sure you understand* any new or
-changed settings! This is really *really* important. For instance in 3.5,
-`app_key` was added, and it appeared that we would want to make it adjustable.
-After looking at how a new install sets it up, though, and digging a bit in the
-code, we discovered that this is a setting users shouldn't be manually setting
-unless they really know what they're doing. This meant we had to find a way to
-get it set as if you were doing a new install, but without having to do that.
-Which meant adding some complexity to the init part of the entrypoint, learning
-about some tools in the OJS codebase, etc.
-
-**Note 1**: this process is for upgrading OJS *in this repo*. Production
-updates might be similar, *but we do not know. They may be completely different
-in ways we can't even guess right now*. Until we have a production setup to
-upgrade, this documentation won't cover that scenario.
-
-**Note 2**: the easiest way to get the new config template is probably grabbing
-the raw file from github. e.g.:
-
-```
-curl https://raw.githubusercontent.com/pkp/ojs/refs/tags/3_5_0-1/config.TEMPLATE.inc.php \
-     > docker/config/config-template.ini
-```
+**Note**: this process is for upgrading OJS *in this repo*. Production updates
+might be similar, *but we do not know. They may be completely different in ways
+we can't even guess right now*. Until we have a production setup to upgrade,
+this documentation won't cover that scenario.
 
 ### Custom OJS Work
 
