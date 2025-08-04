@@ -56,5 +56,11 @@ COPY docker/config/config-template.ini /config-template.ini
 COPY docker/wait_for_database /usr/local/bin/
 COPY docker/entrypoint.sh /entrypoint.sh
 COPY docker/replace-vars.sh /replace-vars.sh
+
+# Make entering containers nicer
+RUN echo "alias ls='ls --color'" >> ~/.bashrc
+RUN echo "alias ll='ls -l'" >> ~/.bashrc
+RUN echo "PS1='${debian_chroot:+($debian_chroot)}\[\033[01;33m\]\u@<ojs-container>\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\n\$ '" >> ~/.bashrc
+
 CMD ["apache2-foreground"]
 ENTRYPOINT ["/entrypoint.sh"]
