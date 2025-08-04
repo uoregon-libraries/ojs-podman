@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql
 RUN docker-php-ext-install mysqli
-RUN docker-php-ext-install mbstring exif pcntl bcmath gd zip intl ftp
+RUN docker-php-ext-install mbstring exif pcntl bcmath gd zip intl ftp gettext
 
 # Grab the production package from the website before any custom stuff since
 # this is one of the least likely steps to change
