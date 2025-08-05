@@ -11,8 +11,15 @@
 #   want to mount any SQL into it
 # - You should set HTTPS to "on" (and only allow secure traffic to the
 #   container)
+name: ojs
 services:
   web:
+    # Uncomment below to build an image with different PHP or OJS
+    #build:
+    #  args:
+    #    - PHP_VERSION=8.1
+    #    - OJS_VERSION=3.3.0-8
+    image: ojs-dev:latest
     environment:
       HTTPS: "off"
       SERVER_PORT: "8080"
