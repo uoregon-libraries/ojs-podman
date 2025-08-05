@@ -10,8 +10,13 @@ init() {
     cp /var/www/html/config.TEMPLATE.inc.php $conffile
     chown www-data $conffile
     chmod 600 $conffile
-    su -s /bin/bash -c "ln -sf $conffile /var/www/html/config.inc.php" - www-data
   fi
+
+  # OJS sometimes blows away our symlink after we've created it, so we just have
+  # to keep forcibly creating it
+  echo "Force-linking $conffile to local config"
+  rm -f /var/www/html/config.inc.php
+  su -s /bin/bash -c "ln -s $conffile /var/www/html/config.inc.php" - www-data
 }
 
 # When user requests bash or sh, don't run the init function
