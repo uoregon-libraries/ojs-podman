@@ -31,7 +31,8 @@ that rely on the same base services, but have small tweaks per environment.
 **Major caveat, though**: it turns out some versions (maybe all) of
 podman-compose do *not* support the "include" directive! If using podman,
 you'll want to either set up the compose files manually, or use `docker compose
-config -f ...` to have a flat compose setup generated for you.
+config --no-interpolate --no-normalize --no-path-resolution -f ...` to have a
+flat compose setup generated for you.
 
 To use compose, you must set up a compose.yml *and* any overrides you want for
 a given environment. We provide a [compose.yml example][2], which is just a
