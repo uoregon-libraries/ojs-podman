@@ -13,8 +13,20 @@
 #   container)
 name: ojs
 services:
+  worker:
+    # Uncomment below to build an image with different PHP or OJS. Make sure
+    # this matches the "web" service's versions!
+    #build:
+    #  args:
+    #    - PHP_VERSION=8.1
+    #    - OJS_VERSION=3.3.0-8
+    image: ojs-dev:latest
+    depends_on:
+      - db
+
   web:
-    # Uncomment below to build an image with different PHP or OJS
+    # Uncomment below to build an image with different PHP or OJS. Make sure
+    # this matches the "worker" service's versions!
     #build:
     #  args:
     #    - PHP_VERSION=8.1
