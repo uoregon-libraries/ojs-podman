@@ -1,19 +1,22 @@
 #!/bin/bash
 
+conffile=/var/local/config/config.inc.php
 init() {
   wait_for_database
 
-  if [ ! -e /var/local/config/config.inc.php ]; then
-    /replace-vars.sh /config-template.ini /var/local/config/config.inc.php
-    chown root:www-data /var/local/config/config.inc.php
+  # If config.inc.php isn't present in our volume, we need to create it and get
+  # it set up for the OJS web installer
+  if [ ! -e $conffile ]; then
+    cp /var/www/html/config.TEMPLATE.inc.php $conffile
+    chown www-data $conffile
+    chmod 600 $conffile
   fi
 
-  su -s /bin/bash -c "ln -sf /var/local/config/config.inc.php /var/www/html/config.inc.php" - www-data
-
-  # Set up the app key: the OJS tool won't replace it if it's already been set
-  chmod 660 /var/local/config/config.inc.php
-  su -s /bin/bash -c "cd /var/www/html && php ./lib/pkp/tools/appKey.php generate" - www-data
-  chmod 440 /var/local/config/config.inc.php
+  # OJS sometimes blows away our symlink after we've created it, so we just have
+  # to keep forcibly creating it
+  echo "Force-linking $conffile to local config"
+  rm -f /var/www/html/config.inc.php
+  su -s /bin/bash -c "ln -s $conffile /var/www/html/config.inc.php" - www-data
 }
 
 # When user requests bash or sh, don't run the init function

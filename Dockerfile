@@ -1,4 +1,5 @@
-FROM php:8.2-apache
+ARG PHP_VERSION="8.2"
+FROM php:${PHP_VERSION}-apache
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -16,12 +17,13 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql
 RUN docker-php-ext-install mysqli
-RUN docker-php-ext-install mbstring exif pcntl bcmath gd zip intl ftp
+RUN docker-php-ext-install mbstring exif pcntl bcmath gd zip intl ftp gettext
 
 # Grab the production package from the website before any custom stuff since
 # this is one of the least likely steps to change
+ARG OJS_VERSION="3.5.0-1"
 WORKDIR /var/www/html
-RUN curl -L https://pkp.sfu.ca/ojs/download/ojs-3.5.0-1.tar.gz | tar -xz --strip-components=1
+RUN curl -L https://pkp.sfu.ca/ojs/download/ojs-$OJS_VERSION.tar.gz | tar -xz --strip-components=1
 RUN find . -type d -exec chmod +rx {} \;
 
 # Create and set permissions for dirs apache needs to write
@@ -51,10 +53,14 @@ RUN sed -i 's/post_max_size\s*=.*$/post_max_size = 1024M/' "$PHP_INI_DIR/php.ini
 COPY docker/config/htaccess /var/www/html/.htaccess
 RUN chmod 644 .htaccess
 
-# Set up our custom entrypoint and configgy stuff
-COPY docker/config/config-template.ini /config-template.ini
+# Set up our custom entrypoint stuff
 COPY docker/wait_for_database /usr/local/bin/
 COPY docker/entrypoint.sh /entrypoint.sh
-COPY docker/replace-vars.sh /replace-vars.sh
+
+# Make entering containers nicer
+RUN echo "alias ls='ls --color'" >> ~/.bashrc
+RUN echo "alias ll='ls -l'" >> ~/.bashrc
+RUN echo "PS1='${debian_chroot:+($debian_chroot)}\[\033[01;33m\]\u@<ojs-container>\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\n\$ '" >> ~/.bashrc
+
 CMD ["apache2-foreground"]
 ENTRYPOINT ["/entrypoint.sh"]

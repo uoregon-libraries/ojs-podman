@@ -1,19 +1,26 @@
 # Example overrides for a dev environment, assuming you pull `ojs.compose.yaml`
 # and `db.compose.yml` into your main compose file. This shows how your web
-# environment might look in development, and includes the `init.sql` file for
-# the database to be initialized with a dummy admin user.
+# environment might look in development.
 #
-# For a production setup, you might not use the db service, in which case you'd
-# have to specify the database env vars here to point to an external database,
-# and you'd want to set things like HTTPS to "on", turn off sandbox, etc.
+# For a production setup, you will definitely not use this as-is. Some
+# examples of what might change:
+#
+# - You might use an external database, so you'd have to specify the production
+#   database env vars here and remove the "db" service
+# - Even if you do use a containerized database, you almost certainly don't
+#   want to mount any SQL into it
+# - You should set HTTPS to "on" (and only allow secure traffic to the
+#   container)
+name: ojs
 services:
   web:
+    # Uncomment below to build an image with different PHP or OJS
+    #build:
+    #  args:
+    #    - PHP_VERSION=8.1
+    #    - OJS_VERSION=3.3.0-8
+    image: ojs-dev:latest
     environment:
-      OJS_BASE_URL: "http://localhost:8080"
-      OJS_ALLOWED_HOSTS: "'[\"localhost\", \"127.0.0.1\"]'"
-      OJS_SANDBOX: "On"
-      OJS_SALT: "foo"
-      OJS_API_KEY_SECRET: "bar"
       HTTPS: "off"
       SERVER_PORT: "8080"
     ports:
@@ -23,5 +30,3 @@ services:
   db:
     ports:
       - 3306:3306
-    volumes:
-      - ./docker/init.sql.gz:/docker-entrypoint-initdb.d/init.sql.gz
