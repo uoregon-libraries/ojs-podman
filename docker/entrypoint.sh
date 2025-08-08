@@ -2,7 +2,9 @@
 
 conffile=/var/local/config/config.inc.php
 init() {
+  echo "Waiting for database to start..."
   wait_for_database
+  echo "Database ready"
 
   # If config.inc.php isn't present in our volume, we need to create it and get
   # it set up for the OJS web installer
@@ -28,4 +30,5 @@ case "$@" in
   init
 esac
 
+echo "Running $@..."
 exec "$@"
