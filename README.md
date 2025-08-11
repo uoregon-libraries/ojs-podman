@@ -103,6 +103,13 @@ prepare for production. Once we're in production we'll likely alter this a lot
 so that local dev is useful for testing out prod data with new themes, plugins,
 etc.
 
+#### Tagging in git
+
+Tags are now going to be in the format of `<ojs version>_<release>`, e.g.,
+`3.5.0-1_1.0.0`. Despite being really awkward, this seems like the easiest way
+to make it clear what we've pushed up in terms of OJS. This is almost certainly
+worth revisiting because it's a pretty awful strategy, but we need *something*.
+
 #### Upgrading
 
 To do an upgrade, there are several manual steps to take:
