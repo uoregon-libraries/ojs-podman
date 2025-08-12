@@ -1,20 +1,4 @@
 services:
-  worker:
-    build:
-      context: .
-    volumes:
-      - private-files:/var/local/ojs-files
-      - public-files:/var/www/html/public
-      - plugins:/var/www/html/plugins
-      - cache:/var/www/html/cache
-      - config:/var/local/config
-    environment:
-      MYSQL_HOST: "db"
-      MYSQL_DATABASE: "ojs"
-      MYSQL_USER: "ojs"
-      MYSQL_PASSWORD: "ojs"
-    command: php lib/pkp/tools/jobs.php work
-
   web:
     build:
       context: .
@@ -31,6 +15,22 @@ services:
       MYSQL_PASSWORD: "ojs"
       HTTPS: ""
       SERVER_PORT: ""
+
+  worker:
+    build:
+      context: .
+    volumes:
+      - private-files:/var/local/ojs-files
+      - public-files:/var/www/html/public
+      - plugins:/var/www/html/plugins
+      - cache:/var/www/html/cache
+      - config:/var/local/config
+    environment:
+      MYSQL_HOST: "db"
+      MYSQL_DATABASE: "ojs"
+      MYSQL_USER: "ojs"
+      MYSQL_PASSWORD: "ojs"
+    command: php lib/pkp/tools/jobs.php work
 
 volumes:
   private-files:
