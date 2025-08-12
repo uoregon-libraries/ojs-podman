@@ -30,6 +30,14 @@ services:
     depends_on:
       - db
 
+    # Local volume example: this makes critical data volumes live on local disk
+    # for easier editing, rsyncing, etc.
+    volumes: &dev-vols
+      - ./vols/private-files:/var/local/ojs-files
+      - ./vols/public-files:/var/www/html/public
+      - ./vols/plugins:/var/www/html/plugins
+      - ./vols/config:/var/local/config
+
   # Technically for dev you might not need a worker service at all. If you do,
   # though, it needs to use the same image and volumes as "web".
   worker:
@@ -37,6 +45,7 @@ services:
     image: ojs-dev:latest
     depends_on:
       - db
+    volumes: *dev-vols
 
   db:
     ports:
