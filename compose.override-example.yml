@@ -46,6 +46,7 @@ services:
     image: ojs-dev:latest
     depends_on:
       - db
+      - smtpdebug
     volumes: *dev-vols
 
   db:
