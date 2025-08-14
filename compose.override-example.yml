@@ -29,6 +29,7 @@ services:
       - 8080:80
     depends_on:
       - db
+      - smtpdebug
 
     # Local volume example: this makes critical data volumes live on local disk
     # for easier editing, rsyncing, etc.

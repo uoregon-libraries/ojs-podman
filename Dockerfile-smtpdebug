@@ -1,0 +1,10 @@
+FROM golang:1-alpine AS smtp-debug-build
+WORKDIR /app
+RUN apk add git make
+RUN git clone https://github.com/uoregon-libraries/smtp-debug .
+RUN make
+
+FROM alpine AS smtp-debug
+COPY --from=smtp-debug-build /app/bin/smtp-debug /usr/local/bin/smtp-debug
+ENTRYPOINT ["/usr/local/bin/smtp-debug"]
+EXPOSE 25
