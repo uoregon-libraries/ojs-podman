@@ -19,7 +19,7 @@ services:
     # "workers" so you don't have to double-specify the build args.
     #build:
     #  args:
-    #    - PHP_VERSION=8.1
+    #    - PHP_VERSION=7.3
     #    - OJS_VERSION=3.3.0-8
     image: ojs-dev:latest
     environment:
