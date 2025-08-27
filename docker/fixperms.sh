@@ -5,6 +5,7 @@
 # it, they have to change things on their own after the container is up.
 chown www-data:root /var/local/config/
 chmod 700 /var/local/config
+find /var/local/config -type f -exec chown www-data:root {} \;
 find /var/local/config -type f -exec chmod 400 {} \;
 
 # The various dirs that OJS needs to read *and* write still need to be set up
