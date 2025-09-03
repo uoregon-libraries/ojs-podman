@@ -57,6 +57,10 @@ remember to re-fix multiple database problems.
   installing rsync into the image and mounting the source volumes temporarily,
   copying files directly into the podman volume directory on the host and then
   changing permissions manually, etc.
+  - Don't forget to get the plugins from production's *codebase*! Without
+    plugins, things break badly. OJS mixes core *and external* plugins right in
+    the app's source directory, so there's no easy way to mirror only your
+    external plugins.
 - Get your production config file copied and modify it as needed. e.g., you
   might need to change things like `allowed_hosts`.
 - Fix ownership and permissions for various files and directories.
@@ -71,6 +75,10 @@ remember to re-fix multiple database problems.
   done by copying the template out of a running container, then just running
   `diff`. You will need to save this so you know which settings actually differ
   from the defaults.
+- **Delete** any new files in the private file mount under
+  `usageStats/usageEventLogs/`! These can make the migration fail. The hostname
+  in the other usage logs won't match the new usage logs where you were
+  connecting to localhost, and OJS seems to hate this.
 - Take down the stack, but **do not delete volumes**!
 
 #### Prepare the new stack
@@ -81,6 +89,9 @@ remember to re-fix multiple database problems.
 - Mirror the files and db volumes from "current" to "next". The easiest way to
   do this is simply rsync the raw files on the host. See Note 1 under
   "Migration Fixes" for an example.
+  - Again, you'll need to deal with the plugins volume in a special way... but
+    this time you only want to mirror the new version's core plugins. *Do not
+    copy the old version's plugins directory*.
 - Start the stack, e.g., `podman compose -f compose.yml -f next.compose.yml up
   -d web`. Don't hit the web endpoint yet!
 - The config file will have been copied from its template in the new OJS
@@ -90,6 +101,9 @@ remember to re-fix multiple database problems.
 - Fix ownership and permissions for various files and directories.
   - `chown -R www-data:www-data /var/local/ojs-files /var/www/html/cache /var/www/html/public /var/www/html/plugins`
   - `chown www-data /var/local/config/config.inc.php && chmod 400 /var/local/config/config.inc.php`
+- Make sure you delete any new usage stats! This is mentioned above, but it
+  keeps biting me.
+  - e.g., `rm /var/local/ojs-files/usageStats/usageEventLogs/usage_events_20250825.log`
 - Run the OJS CLI upgrade tool, e.g., enter the web container a run `php
   tools/upgrade.php check` and if all is well, run the upgrade *with a lot of
   RAM*, e.g., `php -d memory_limit=4096M tools/upgrade.php upgrade`
@@ -156,6 +170,37 @@ INSERT INTO `users` VALUES (1,'admin','$2y$10$F82pubB1MFZratL.a/zF0OVRUFE6GT8.GK
 Add the SQL to a copy of your production DB export so that a full restart
 prevents future failures.
 
+##### A16 (Adding An Additional Administrative Account Anytime, Anywhere, Allowing All Authorized Administrators Ample Access And Absolute Authority)
+
+Anytime you need to, you can create multiple admin accounts. OJS is very opaque
+about this, but they mention in their FAQ that you can execute SQL to do this.
+Which is nuts, but... OJS will be OJS, as they say.
+
+Figure out the group ID you need, then associate it with a user who needs admin
+access. The group id can be found via:
+
+```sql
+; Official docs say to look for a context id of 0:
+SELECT user_group_id FROM user_groups WHERE context_id=0 AND role_id=1;
+
+; ...but our admin from OJS 3.3.0-8 had a NULL id, so we did this:
+SELECT user_group_id FROM user_groups WHERE context_id IS NULL AND role_id=1;
+```
+
+For us, the answer was 1. Now find the user id you want to give admin
+privileges to. You'll need to know their username, but presumably you know that
+if you're giving them admin....
+
+```sql
+select user_id from users where username = 'jbriggs';
+```
+
+Finally, you just need to give that user id access to the admin group:
+
+```sql
+INSERT INTO user_user_groups (user_id, user_group_id) VALUES (<user_id>, <user_group_id>);
+```
+
 ##### Missing Journal Contact Information
 
 Similar to missing admin users, this is fixed most easily (and repeatably) by
@@ -193,5 +238,3 @@ INSERT INTO `journal_settings` VALUES (1,'','mailingAddress','123 Mailing Addres
 INSERT INTO `journal_settings` VALUES (1,'','supportEmail','supportemail@example.org',NULL);
 INSERT INTO `journal_settings` VALUES (1,'','supportName','SupportName',NULL);
 ```
-
-
