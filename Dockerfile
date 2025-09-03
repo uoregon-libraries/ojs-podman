@@ -47,6 +47,7 @@ RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 RUN sed -i 's/upload_max_filesize\s*=.*$/upload_max_filesize = 1024M/' "$PHP_INI_DIR/php.ini"
 RUN sed -i 's/post_max_size\s*=.*$/post_max_size = 1024M/' "$PHP_INI_DIR/php.ini"
+RUN sed -i 's/memory_limit\s*=.*$/memory_limit = 4096M/' "$PHP_INI_DIR/php.ini"
 
 # Now copy in all the files we customize
 COPY docker/config/htaccess /var/www/html/.htaccess
