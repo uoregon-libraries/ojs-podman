@@ -3,9 +3,11 @@ package main
 import (
 	"bufio"
 	"database/sql"
+	"flag"
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -13,18 +15,37 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 3 {
-		fmt.Println("Usage: go run main.go <email> <password>")
-		os.Exit(1)
+	var (
+		userId    int
+		email     string
+		password  string
+		userIdStr string
+	)
+
+	flag.StringVar(&userIdStr, "user-id", "", "User ID")
+	flag.StringVar(&email, "email", "", "User email")
+	flag.StringVar(&password, "password", "", "New password")
+	flag.Parse()
+
+	if userIdStr != "" {
+		var err error
+		userId, err = strconv.Atoi(userIdStr)
+		if err != nil {
+			log.Fatalf("Invalid user ID: %v", err)
+		}
+	}
+
+	if (userId == 0 && email == "") || (userId != 0 && email != "") {
+		log.Fatal("Please provide either a user ID or an email, but not both.")
+	}
+	if password == "" {
+		log.Fatal("Please provide a password.")
 	}
 
 	dsn := os.Getenv("DSN")
 	if dsn == "" {
 		log.Fatal("DSN environment variable not set")
 	}
-
-	email := os.Args[1]
-	password := os.Args[2]
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -33,10 +54,21 @@ func main() {
 	defer db.Close()
 
 	var username string
-	err = db.QueryRow("SELECT username FROM users WHERE email = ?", email).Scan(&username)
+	var query string
+	var arg interface{}
+
+	if userId != 0 {
+		query = "SELECT username FROM users WHERE user_id = ?"
+		arg = userId
+	} else {
+		query = "SELECT username FROM users WHERE email = ?"
+		arg = email
+	}
+
+	err = db.QueryRow(query, arg).Scan(&username)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Fatalf("User with email %s not found", email)
+			log.Fatalf("User not found")
 		}
 		log.Fatalf("Error querying database: %v", err)
 	}
@@ -54,7 +86,13 @@ func main() {
 		log.Fatalf("Error generating hash: %v", err)
 	}
 
-	_, err = db.Exec("UPDATE users SET password = ? WHERE email = ?", hash, email)
+	if userId != 0 {
+		query = "UPDATE users SET password = ? WHERE user_id = ?"
+	} else {
+		query = "UPDATE users SET password = ? WHERE email = ?"
+	}
+
+	_, err = db.Exec(query, hash, arg)
 	if err != nil {
 		log.Fatalf("Error updating password: %v", err)
 	}
