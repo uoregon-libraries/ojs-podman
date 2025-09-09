@@ -22,22 +22,21 @@ RUN docker-php-ext-install mbstring exif pcntl bcmath gd zip intl ftp gettext
 # Grab the production package from the website before any custom stuff since
 # this is one of the least likely steps to change
 ARG OJS_VERSION="3.5.0-1"
+USER www-data
 WORKDIR /var/www/html
-RUN curl -L https://pkp.sfu.ca/ojs/download/ojs-$OJS_VERSION.tar.gz | tar -xz --strip-components=1
-RUN find . -type d -exec chmod +rx {} \;
+RUN umask 077 && curl -L https://pkp.sfu.ca/ojs/download/ojs-$OJS_VERSION.tar.gz | tar -xz --strip-components=1
+USER root
 
-# Create and set permissions for dirs apache needs to write
+# Create dirs apache needs to write and register them as volumes
 VOLUME /var/local/ojs-files
 VOLUME /var/www/html/cache
 VOLUME /var/www/html/public
 VOLUME /var/www/html/plugins
 RUN mkdir -p /var/local/ojs-files /var/www/html/cache /var/www/html/public /var/www/html/plugins
-RUN chown -R www-data:www-data /var/local/ojs-files /var/www/html/cache /var/www/html/public /var/www/html/plugins
 
 # Create a dir for the config file which we can mount locally for editing
 VOLUME /var/local/config
 RUN mkdir -p /var/local/config
-RUN chown -R www-data:www-data /var/local/config
 
 # Set up Apache to allow overrides for our custom .htaccess file
 RUN a2enmod rewrite
@@ -48,10 +47,19 @@ RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 RUN sed -i 's/upload_max_filesize\s*=.*$/upload_max_filesize = 1024M/' "$PHP_INI_DIR/php.ini"
 RUN sed -i 's/post_max_size\s*=.*$/post_max_size = 1024M/' "$PHP_INI_DIR/php.ini"
+RUN sed -i 's/memory_limit\s*=.*$/memory_limit = 4096M/' "$PHP_INI_DIR/php.ini"
 
 # Now copy in all the files we customize
 COPY docker/config/htaccess /var/www/html/.htaccess
-RUN chmod 644 .htaccess
+RUN chown www-data:root .htaccess
+RUN chmod 400 .htaccess
+
+# Add some useful tools
+COPY docker/fixperms.sh /bin/fixperms.sh
+RUN chmod 700 /bin/fixperms.sh
+
+# Hack permissions
+RUN fixperms.sh
 
 # Set up our custom entrypoint stuff
 COPY docker/wait_for_database /usr/local/bin/

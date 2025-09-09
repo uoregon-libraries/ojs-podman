@@ -93,7 +93,7 @@ Editing the config file is most easily done by mounting the config volume
 somewhere temporarily to edit it, or copying config out of the volume, editing
 it, and then copying it back in.
 
-### Development
+## Development
 
 *("Development" in this case means running OJS locally, not doing work on the
 OJS project itself.)*
@@ -103,14 +103,14 @@ prepare for production. Once we're in production we'll likely alter this a lot
 so that local dev is useful for testing out prod data with new themes, plugins,
 etc.
 
-#### Tagging in git
+### Tagging in git
 
 Tags are now going to be in the format of `<ojs version>_<release>`, e.g.,
 `3.5.0-1_1.0.0`. Despite being really awkward, this seems like the easiest way
 to make it clear what we've pushed up in terms of OJS. This is almost certainly
 worth revisiting because it's a pretty awful strategy, but we need *something*.
 
-#### Upgrading
+### Upgrading
 
 To do an upgrade, there are several manual steps to take:
 
@@ -132,7 +132,7 @@ might be similar, *but we do not know. They may be completely different in ways
 we can't even guess right now*. Until we have a production setup to upgrade,
 this documentation won't cover that scenario.
 
-### Custom OJS Work
+## Custom OJS Work
 
 We don't yet have a setup for doing actual OJS dev: right now the "dev" compose
 example is more for running a test of the app locally and figuring out things

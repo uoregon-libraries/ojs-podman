@@ -64,8 +64,7 @@ remember to re-fix multiple database problems.
 - Get your production config file copied and modify it as needed. e.g., you
   might need to change things like `allowed_hosts`.
 - Fix ownership and permissions for various files and directories.
-  - `chown -R www-data:www-data /var/local/ojs-files /var/www/html/cache /var/www/html/public /var/www/html/plugins`
-  - `chown www-data /var/local/config/config.inc.php && chmod 400 /var/local/config/config.inc.php`
+  - Run `fixperms.sh` in the web container.
 - Test that the setup is running and your local server looks like production.
   - This piece can be *crucial* to the migration, don't skip it! It may be
     necessary to run scheduled jobs in some setups, and hitting the website is
@@ -99,8 +98,7 @@ remember to re-fix multiple database problems.
   edit it directly from the host's `ojs-next_config` volume) based on the diff
   you created above.
 - Fix ownership and permissions for various files and directories.
-  - `chown -R www-data:www-data /var/local/ojs-files /var/www/html/cache /var/www/html/public /var/www/html/plugins`
-  - `chown www-data /var/local/config/config.inc.php && chmod 400 /var/local/config/config.inc.php`
+  - Run `fixperms.sh` in the web container.
 - Make sure you delete any new usage stats! This is mentioned above, but it
   keeps biting me.
   - e.g., `rm /var/local/ojs-files/usageStats/usageEventLogs/usage_events_20250825.log`

@@ -13,23 +13,13 @@
 #   container)
 name: ojs
 services:
-  worker:
-    # Uncomment below to build an image with different PHP or OJS. Make sure
-    # this matches the "web" service's versions!
-    #build:
-    #  args:
-    #    - PHP_VERSION=8.1
-    #    - OJS_VERSION=3.3.0-8
-    image: ojs-dev:latest
-    depends_on:
-      - db
-
   web:
-    # Uncomment below to build an image with different PHP or OJS. Make sure
-    # this matches the "worker" service's versions!
+    # Uncomment below to build an image with different PHP or OJS. Set "image"
+    # to anything that makes sense, but be sure it's the same for "web" and
+    # "workers" so you don't have to double-specify the build args.
     #build:
     #  args:
-    #    - PHP_VERSION=8.1
+    #    - PHP_VERSION=7.3
     #    - OJS_VERSION=3.3.0-8
     image: ojs-dev:latest
     environment:
@@ -39,6 +29,24 @@ services:
       - 8080:80
     depends_on:
       - db
+
+    # Local volume example: this makes critical data volumes live on local disk
+    # for easier editing, rsyncing, etc.
+    volumes: &dev-vols
+      - ./vols/private-files:/var/local/ojs-files
+      - ./vols/public-files:/var/www/html/public
+      - ./vols/plugins:/var/www/html/plugins
+      - ./vols/config:/var/local/config
+
+  # Technically for dev you might not need a worker service at all. If you do,
+  # though, it needs to use the same image and volumes as "web".
+  worker:
+    # Make sure this matches web's image
+    image: ojs-dev:latest
+    depends_on:
+      - db
+    volumes: *dev-vols
+
   db:
     ports:
       - 3306:3306
