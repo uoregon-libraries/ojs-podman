@@ -2,6 +2,7 @@ services:
   web:
     build:
       context: .
+      target: web
     volumes: &vols
       - private-files:/var/local/ojs-files
       - public-files:/var/www/html/public
@@ -19,13 +20,13 @@ services:
   worker:
     build:
       context: .
+      target: worker
     volumes: *vols
     environment:
       MYSQL_HOST: "db"
       MYSQL_DATABASE: "ojs"
       MYSQL_USER: "ojs"
       MYSQL_PASSWORD: "ojs"
-    command: php lib/pkp/tools/jobs.php work
 
 volumes:
   private-files:

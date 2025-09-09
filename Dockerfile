@@ -1,5 +1,5 @@
 ARG PHP_VERSION="8.2"
-FROM php:${PHP_VERSION}-apache
+FROM php:${PHP_VERSION}-apache AS web
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -72,3 +72,9 @@ RUN echo "PS1='${debian_chroot:+($debian_chroot)}\[\033[01;33m\]\u@<ojs-containe
 
 CMD ["apache2-foreground"]
 ENTRYPOINT ["/entrypoint.sh"]
+
+FROM web AS worker
+
+# Override the stop signal since Apache's httpd uses SIGWINCH
+STOPSIGNAL SIGTERM
+CMD ["php", "lib/pkp/tools/jobs.php", "work"]
