@@ -7,21 +7,17 @@
 #
 # - You might use an external database, so you'd have to specify the production
 #   database env vars here and remove the "db" service
-# - Even if you do use a containerized database, you almost certainly don't
-#   want to mount any SQL into it
 # - You should set HTTPS to "on" (and only allow secure traffic to the
 #   container)
+# - You really don't want a dependency on the smtpdebug service.
 name: ojs
 services:
   web:
-    # Uncomment below to build an image with different PHP or OJS. Set "image"
-    # to anything that makes sense, but be sure it's the same for "web" and
-    # "workers" so you don't have to double-specify the build args.
+    # Uncomment below to build an image with different PHP or OJS.
     #build:
     #  args:
     #    - PHP_VERSION=7.3
     #    - OJS_VERSION=3.3.0-8
-    image: ojs-dev:latest
     environment:
       HTTPS: "off"
       SERVER_PORT: "8080"
@@ -42,8 +38,12 @@ services:
   # Technically for dev you might not need a worker service at all. If you do,
   # though, it needs to use the same image and volumes as "web".
   worker:
-    # Make sure this matches web's image
-    image: ojs-dev:latest
+    # Uncomment below to build an image with different PHP or OJS. This should
+    # almost always match the web service.
+    #build:
+    #  args:
+    #    - PHP_VERSION=7.3
+    #    - OJS_VERSION=3.3.0-8
     depends_on:
       - db
       - smtpdebug

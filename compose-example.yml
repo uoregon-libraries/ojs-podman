@@ -6,3 +6,4 @@
 include:
   - path: ojs.compose.yml
   - path: db.compose.yml
+  - path: smtpdebug.compose.yml
