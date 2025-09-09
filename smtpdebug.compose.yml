@@ -1,0 +1,5 @@
+services:
+  smtpdebug:
+    build:
+      context: .
+      dockerfile: Dockerfile-smtpdebug
