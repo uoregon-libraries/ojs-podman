@@ -47,12 +47,10 @@ remember to re-fix multiple database problems.
   - **You need an admin user.** If you scrub admins from the DB for any reason,
     you need to create one! See notes below in the "Migration Fixes" section.
   - If you get something like `Got error 1 "Operation not permitted" during
-    COMMIT`, you may have to hack up the production database dump. I haven't
-    been able to figure out how to get around this without *removing* `INSERT`
-    statements from the `submission_search_keyword_list` table. I suspect it's
-    due to different versions and settings from current prod to new prod, but
-    we needed to just get this done after trying in vain to get settings fixed.
-    We're *fairly* certain that table isn't used in newer OJS versions....
+    COMMIT`, you may have to hack up the production database dump to force all
+    character sets and collations to be valid for newer MySQL / MariaDB. e.g.,
+    the last line in a `CREATE TABLE` statement should look something like
+    `) ENGINE=InnoDB AUTO_INCREMENT=80179 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;`
 - Copy your production files into the container's volumes. This might mean
   installing rsync into the image and mounting the source volumes temporarily,
   copying files directly into the podman volume directory on the host and then
@@ -70,14 +68,25 @@ remember to re-fix multiple database problems.
     necessary to run scheduled jobs in some setups, and hitting the website is
     one of the common ways this happens. **Don't skip this step**! Log in as an
     admin, even, to make *everything* seems to work.
+    - Note that in at least one setup, we're finding that we can't use the
+      command-line job runner. We *have* to log in to get jobs running.
+  - If you have files in `<private>/usageStats/usageEventLogs/processing`,
+    `<private>/usageStats/usageEventLogs/stage`, or
+    `<private>/usageStats/usageEventLogs/usageEventLogs`, you may have to wait
+    a while while random background tasks process these. If you don't, the
+    migration can fail and waste a lot of time.
+- Do any maintenance tasks that are needed *before* the migration!
+  - Delete undesired journals
+  - Fix journal contact settings
+  - As mentioned above, make sure scheduled jobs have run
+  - *A lot of this can be done after you export your old version, but it's
+    often far safer to do this in the web UI.*
 - Get a diff between the config template and your actual config. This can be
   done by copying the template out of a running container, then just running
   `diff`. You will need to save this so you know which settings actually differ
   from the defaults.
-- **Delete** any new files in the private file mount under
-  `usageStats/usageEventLogs/`! These can make the migration fail. The hostname
-  in the other usage logs won't match the new usage logs where you were
-  connecting to localhost, and OJS seems to hate this.
+- If the job processing didn't clean up the usage stats dir, you may have to
+  delete things manually. Avoid this if at all possible, however.
 - Take down the stack, but **do not delete volumes**!
 
 #### Prepare the new stack
@@ -99,9 +108,6 @@ remember to re-fix multiple database problems.
   you created above.
 - Fix ownership and permissions for various files and directories.
   - Run `fixperms.sh` in the web container.
-- Make sure you delete any new usage stats! This is mentioned above, but it
-  keeps biting me.
-  - e.g., `rm /var/local/ojs-files/usageStats/usageEventLogs/usage_events_20250825.log`
 - Run the OJS CLI upgrade tool, e.g., enter the web container a run `php
   tools/upgrade.php check` and if all is well, run the upgrade *with a lot of
   RAM*, e.g., `php -d memory_limit=4096M tools/upgrade.php upgrade`
@@ -113,13 +119,17 @@ remember to re-fix multiple database problems.
     Note that the fix "should" be running a task scheduler, but in some cases
     you cannot run the PHP command-line task tool! Logging into the "current"
     site may be required to get tasks to run.
-  - If journals are missing contact info, the easiest approach is to edit the
-    database. More info in "Migration Fixes" below.
+  - If journals are missing contact info, you can either go back to your
+    pre-migration stack and edit things in the web UI or edit the database
+    directly. More info in "Migration Fixes" below.
   - If you have other errors, it's usually the case that you'll have to fix the
     problems in "current", then start over again. "next" won't run properly
     until it's upgraded, at least in the cases we run into. So if you get error
     messages that seem easy to fix, keep in mind you still have to fix them in
     "current".
+- Back things up! If you want to test out and change data, you'll want a way to
+  revert to a known good setup. Back up SQL as well as the filesystem volumes.
+- Journals look wrong? Make sure you reinstall / update themes!
 
 Note that when failures occur, you often have to restart the process, which
 often means having to re-mirror "current" to "next". In most cases *you do not
@@ -145,6 +155,18 @@ done
 
 ##### Adding an admin user
 
+**Note**: we have a Go script in `cmd/create-admin` to tie an existing user to
+the administrative group, allowing you to avoid a raw SQL `INSERT` statement.
+
+Example usage:
+
+```
+make
+./bin/create-admin jechols@uoregon.edu
+```
+
+-----
+
 Make sure there's an admin user in the database! If there isn't,
 you'll get a usage message from the "upgrade" tool that just tells you the
 commands it supports. There will be *no explanation* that you need an admin
@@ -169,6 +191,18 @@ Add the SQL to a copy of your production DB export so that a full restart
 prevents future failures.
 
 ##### A16 (Adding An Additional Administrative Account Anytime, Anywhere, Allowing All Authorized Administrators Ample Access And Absolute Authority)
+
+**Note**: we have a Go script in `cmd/create-admin` to tie an existing user to
+the administrative group, allowing you to avoid the raw SQL statements.
+
+Example usage:
+
+```
+make
+./bin/create-admin jechols@uoregon.edu
+```
+
+-----
 
 Anytime you need to, you can create multiple admin accounts. OJS is very opaque
 about this, but they mention in their FAQ that you can execute SQL to do this.
