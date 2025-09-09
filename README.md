@@ -110,6 +110,16 @@ Tags are now going to be in the format of `<ojs version>_<release>`, e.g.,
 to make it clear what we've pushed up in terms of OJS. This is almost certainly
 worth revisiting because it's a pretty awful strategy, but we need *something*.
 
+### Email debugging
+
+If you want to be able to debug emails, you can use the included smtpdebug
+service definition (`smtpdebug.compose.yml`) in your compose stack. Along with
+the compose override example's `depends_on` configuration, this would create a
+service that the worker and web service both are able to use by name. You'd
+configure your OJS to point to `smtpdebug` on port 25, and then watch the logs
+from the smtpdebug container. This allows you to run a dev instance and see
+what emails would have been sent, for instance.
+
 ### Upgrading
 
 To do an upgrade, there are several manual steps to take:
