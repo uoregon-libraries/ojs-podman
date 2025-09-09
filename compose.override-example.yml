@@ -7,8 +7,6 @@
 #
 # - You might use an external database, so you'd have to specify the production
 #   database env vars here and remove the "db" service
-# - Even if you do use a containerized database, you almost certainly don't
-#   want to mount any SQL into it
 # - You should set HTTPS to "on" (and only allow secure traffic to the
 #   container)
 name: ojs
