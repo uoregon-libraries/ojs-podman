@@ -66,9 +66,6 @@ RUN chmod 400 .htaccess
 COPY docker/fixperms.sh /bin/fixperms.sh
 RUN chmod 700 /bin/fixperms.sh
 
-# Hack permissions
-RUN fixperms.sh
-
 # Set up our custom entrypoint stuff
 COPY docker/wait_for_database /usr/local/bin/
 COPY docker/entrypoint.sh /entrypoint.sh
