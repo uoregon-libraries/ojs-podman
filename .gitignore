@@ -2,3 +2,5 @@
 /*.override.yml
 /vols
 /bin
+/exports
+/docker/mirror-vars.sh

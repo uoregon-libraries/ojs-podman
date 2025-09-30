@@ -24,8 +24,12 @@ RUN docker-php-ext-install mbstring exif pcntl bcmath gd zip intl ftp gettext
 ARG OJS_VERSION="3.5.0-1"
 USER www-data
 WORKDIR /var/www/html
-RUN umask 077 && curl -L https://pkp.sfu.ca/ojs/download/ojs-$OJS_VERSION.tar.gz | tar -xz --strip-components=1
+RUN curl -L https://pkp.sfu.ca/ojs/download/ojs-$OJS_VERSION.tar.gz | tar -xz --strip-components=1
 USER root
+
+# Fix base app permissions so Apache cannot rewrite the codebase
+RUN find . -type f -exec chmod 400 {} \;
+RUN find . -type d -exec chmod 500 {} \;
 
 # Create dirs apache needs to write and register them as volumes
 VOLUME /var/local/ojs-files
@@ -43,6 +47,10 @@ RUN a2enmod rewrite
 RUN a2enmod headers
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
+# Don't allow anything in /var/www/html/public to be treated as executable
+COPY docker/config/public.conf /etc/apache2/conf-available/public.conf
+RUN a2enconf public.conf
+
 # Give PHP some sane config settings
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 RUN sed -i 's/upload_max_filesize\s*=.*$/upload_max_filesize = 1024M/' "$PHP_INI_DIR/php.ini"
@@ -57,9 +65,6 @@ RUN chmod 400 .htaccess
 # Add some useful tools
 COPY docker/fixperms.sh /bin/fixperms.sh
 RUN chmod 700 /bin/fixperms.sh
-
-# Hack permissions
-RUN fixperms.sh
 
 # Set up our custom entrypoint stuff
 COPY docker/wait_for_database /usr/local/bin/
