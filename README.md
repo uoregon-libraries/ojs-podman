@@ -105,8 +105,8 @@ etc.
 
 ### Tagging in git
 
-Tags are now going to be in the format of `<ojs version>_<release>`, e.g.,
-`3.5.0-1_1.0.0`. Despite being really awkward, this seems like the easiest way
+Tags are now going to be in the format of `v<ojs version>-<release>`, e.g.,
+`v3.5.0.1-1.0.0`. Despite being really awkward, this seems like the easiest way
 to make it clear what we've pushed up in terms of OJS. This is almost certainly
 worth revisiting because it's a pretty awful strategy, but we need *something*.
 
