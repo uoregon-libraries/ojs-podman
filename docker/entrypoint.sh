@@ -14,7 +14,9 @@ init() {
   # to keep forcibly creating it
   echo "Force-linking $conffile to local config"
   rm -f /var/www/html/config.inc.php
+  chmod +w /var/www/html
   su -s /bin/bash -c "ln -s $conffile /var/www/html/config.inc.php" - www-data
+  chmod -w /var/www/html
 
   # Wait for the database last: the db container is starting up in parallel, so
   # there's no point making the above operations wait on this
