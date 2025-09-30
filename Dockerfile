@@ -24,8 +24,12 @@ RUN docker-php-ext-install mbstring exif pcntl bcmath gd zip intl ftp gettext
 ARG OJS_VERSION="3.5.0-1"
 USER www-data
 WORKDIR /var/www/html
-RUN umask 077 && curl -L https://pkp.sfu.ca/ojs/download/ojs-$OJS_VERSION.tar.gz | tar -xz --strip-components=1
+RUN curl -L https://pkp.sfu.ca/ojs/download/ojs-$OJS_VERSION.tar.gz | tar -xz --strip-components=1
 USER root
+
+# Fix base app permissions so Apache cannot rewrite the codebase
+RUN find . -type f -exec chmod 400 {} \;
+RUN find . -type d -exec chmod 500 {} \;
 
 # Create dirs apache needs to write and register them as volumes
 VOLUME /var/local/ojs-files
