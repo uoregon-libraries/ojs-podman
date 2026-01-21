@@ -4,6 +4,6 @@
 # `compose.override-example.yml` shows how you might expose ports, adjust
 # environment variables, etc.
 include:
-  - path: ojs.compose.yml
-  - path: db.compose.yml
-  - path: smtpdebug.compose.yml
+  - ojs.compose.yml
+  - db.compose.yml
+  - smtpdebug.compose.yml

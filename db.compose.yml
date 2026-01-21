@@ -1,6 +1,6 @@
 services:
   db:
-    image: mariadb
+    image: docker.io/mariadb:12
     environment:
       MYSQL_DATABASE: "ojs"
       MYSQL_USER: "ojs"
