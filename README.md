@@ -103,6 +103,18 @@ prepare for production. Once we're in production we'll likely alter this a lot
 so that local dev is useful for testing out prod data with new themes, plugins,
 etc.
 
+### Setting up admins
+
+Multiple scripts are in this repo to help automate tasks, both in production
+and local development. For development you will probably need to change a
+password and give somebody admin for testing things out. It's easy!
+
+```bash
+make
+./bin/create-admin jechols@uoregon.edu
+./bin/change-password -email jechols@uoregon.edu -password adm
+```
+
 ### Tagging in git
 
 Tags are now going to be in the format of `v<ojs version>-<release>`, e.g.,
