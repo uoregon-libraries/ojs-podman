@@ -7,3 +7,7 @@ include:
   - ojs.compose.yml
   - db.compose.yml
   - smtpdebug.compose.yml
+  # If you use podman-compose, you may need to specify this explicitly.
+  # podman-compose does load this, but it appears to load the override *first*,
+  # causing various settings to get overridden (like volumes).
+  #- compose.override.yml
