@@ -88,6 +88,9 @@ have to be set:
   *must* be set to `/var/local/ojs-files`. Normally the web installer will set
   this for you, but it's worth double-checking the value.
 - `public_files_dir`: This *must* be set to `public`.
+- `allowed_hosts`: You *must set this* to your public hostname(s)! In dev this
+  can mean `localhost`, `127.0.0.1`, etc. In production it's the URL that
+  proxies to the app.
 
 Editing the config file is most easily done by mounting the config volume
 somewhere temporarily to edit it, or copying config out of the volume, editing
