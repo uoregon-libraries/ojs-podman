@@ -16,6 +16,7 @@ services:
       MYSQL_PASSWORD: "ojs"
       HTTPS: ""
       SERVER_PORT: ""
+    restart: unless-stopped
 
   worker:
     build:
@@ -27,6 +28,7 @@ services:
       MYSQL_DATABASE: "ojs"
       MYSQL_USER: "ojs"
       MYSQL_PASSWORD: "ojs"
+    restart: unless-stopped
 
 volumes:
   private-files:
