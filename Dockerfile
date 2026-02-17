@@ -1,5 +1,5 @@
 ARG PHP_VERSION="8.2"
-FROM php:${PHP_VERSION}-apache AS web
+FROM docker.io/php:${PHP_VERSION}-apache AS web
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
