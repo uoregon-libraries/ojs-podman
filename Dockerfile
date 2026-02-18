@@ -1,5 +1,5 @@
 ARG PHP_VERSION="8.2"
-FROM php:${PHP_VERSION}-apache AS web
+FROM docker.io/php:${PHP_VERSION}-apache AS web
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -22,7 +22,7 @@ RUN docker-php-ext-install mbstring exif pcntl bcmath gd zip intl ftp gettext
 
 # Grab the production package from the website before any custom stuff since
 # this is one of the least likely steps to change
-ARG OJS_VERSION="3.5.0-1"
+ARG OJS_VERSION="3.5.0-3"
 USER www-data
 WORKDIR /var/www/html
 RUN curl -L https://pkp.sfu.ca/ojs/download/ojs-$OJS_VERSION.tar.gz | tar -xz --strip-components=1
