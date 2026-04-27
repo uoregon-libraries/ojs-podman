@@ -10,4 +10,4 @@ services:
       - db:/var/lib/mysql
 
 volumes:
-  db:
+  db: {}
