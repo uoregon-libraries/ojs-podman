@@ -6,5 +6,5 @@ RUN make
 
 FROM alpine AS smtp-debug
 COPY --from=smtp-debug-build /app/bin/smtp-debug /usr/local/bin/smtp-debug
-ENTRYPOINT ["/usr/local/bin/smtp-debug"]
+ENTRYPOINT ["/usr/local/bin/smtp-debug", "-out", "/var/local/smtp-debug-logs"]
 EXPOSE 25
