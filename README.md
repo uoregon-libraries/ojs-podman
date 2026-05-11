@@ -113,6 +113,8 @@ and local development. For development you will probably need to change a
 password and give somebody admin for testing things out. It's easy!
 
 ```bash
+# This probably needs to be adjusted for your environment
+export DSN="ojs:ojs@tcp(127.0.0.1:3306)/ojs"
 make
 ./bin/create-admin jechols@uoregon.edu
 ./bin/change-password -email jechols@uoregon.edu -password adm

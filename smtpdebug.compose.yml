@@ -3,3 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-smtpdebug
+    volumes:
+      - smtp-debug-logs:/var/local/smtp-debug-logs:rw
+
+  web:
+    volumes:
+      - smtp-debug-logs:/var/local/smtp-debug-logs:ro
+
+volumes:
+  smtp-debug-logs: {}

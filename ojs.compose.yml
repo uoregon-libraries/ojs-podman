@@ -31,8 +31,8 @@ services:
     restart: unless-stopped
 
 volumes:
-  private-files:
-  public-files:
-  plugins:
-  cache:
-  config:
+  private-files: {}
+  public-files: {}
+  plugins: {}
+  cache: {}
+  config: {}
