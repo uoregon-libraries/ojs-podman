@@ -120,6 +120,18 @@ make
 ./bin/change-password -email jechols@uoregon.edu -password adm
 ```
 
+### Permissions
+
+Permissions are a pain in OJS in dev, because you're destroying and rebuilding
+volumes regularly, or needing to mirror production volumes which require
+changing permissions locally, which in turn may break your in-container
+permissions.
+
+The fix: after you do anything that breaks container-level privileges,
+*including rebuilding volumes*, run `docker compose exec web fixperms.sh` while
+the stack is up. This can take a minute or two, but it should get all
+permissions set correctly.
+
 ### Tagging in git
 
 Tags are now going to be in the format of `v<ojs version>-<release>`, e.g.,
