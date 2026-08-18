@@ -96,6 +96,57 @@ Editing the config file is most easily done by mounting the config volume
 somewhere temporarily to edit it, or copying config out of the volume, editing
 it, and then copying it back in.
 
+## Mirror prod to staging ("dev")
+
+*Our "dev" site isn't really dev, but we named it that, so we're stuck with it.*
+
+Mirroring data from production to dev is easiest done on the container host via
+rsync and SQL exports.
+
+```bash
+# (ssh into the server as the podman user)
+
+# Get into podman's volume dir
+cd ~/.local/share/containers/storage/volumes/
+
+# Make sure all commands are run inside podman's rootless user namespace -
+# without this, you're going to get permissions problems running the rsync
+# and/or starting up dev
+podman unshare
+
+# Mirror raw files
+rsync -avzP --exclude="usageStats/archive/" --exclude="temp/" --delete ojs-prod_private-files/ ojs-dev_private-files/
+rsync -avzP --delete ojs-prod_public-files/ ojs-dev_public-files/
+rsync -avzP --delete ojs-prod_plugins/ ojs-dev_plugins/
+```
+
+The SQL dump is slightly more annoying; you *could* rsync, but that's not
+recommended: you have to shut down prod to avoid copying files that are in use,
+and if there's any version difference in prod's MariaDB and dev's, you'll run
+into problems and have to do a DB dump anyway.
+
+*(This can also be a risk with the rsync commands above, but a half-written PDF
+only messes up displaying, while a half-written MariaDB table means the
+database won't start up.)*
+
+```bash
+# (as the podman user, *not* inside the rootless namespace)
+
+# We export the structure separately from the data. I don't remember why, but
+# it was important!
+export devpath=/path/to/ojs/dev
+/usr/local/bin/podman-mysqldump.sh ojs-prod web -hdb -d ojs > $devpath/exports/db/001-struct.sql
+/usr/local/bin/podman-mysqldump.sh ojs-prod web -hdb -t ojs > $devpath/exports/db/002-data.sql
+```
+
+Then:
+
+- Delete the dev db volume, e.g., `podman volume rm ojs-dev_db`
+- Configure dev's compose stack to mount the SQL in
+- Start the DB container, wait for the import to complete, and shut it down
+- Remove the SQL override
+- Start the stack via systemd
+
 ## Development
 
 *("Development" in this case means running OJS locally, not doing work on the
