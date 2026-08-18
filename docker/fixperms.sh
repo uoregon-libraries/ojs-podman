@@ -13,6 +13,5 @@ find /var/local/config -type f -exec chmod 460 {} \;
 for dir in /var/local/ojs-files /var/www/html/cache /var/www/html/public /var/www/html/plugins; do
   chown -R www-data:root $dir
   chmod 770 $dir
-  find $dir -type f -exec chmod 660 {} \;
-  find $dir -type d -exec chmod 770 {} \;
+  find "$dir" \( -type f ! -perm 0660 -exec chmod 660 {} + \) -o \( -type d ! -perm 0770 -exec chmod 770 {} + \)
 done
