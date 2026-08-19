@@ -2,6 +2,13 @@
 
 conffile=/var/local/config/config.inc.php
 init() {
+  # This adds a lot of overhead to container startup, and is usually
+  # unnecessary, but ensuring this happens seems like a good idea all the same.
+  # At least for now.
+  echo "Ensuring proper file/dir permissions..."
+  fixperms.sh
+  echo "Permissions set"
+
   # If config.inc.php isn't present in our volume, we need to create it and get
   # it set up for the OJS web installer
   if [ ! -e $conffile ]; then
