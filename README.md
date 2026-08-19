@@ -117,6 +117,8 @@ podman unshare
 # Mirror raw files
 rsync -avzP --exclude="usageStats/archive/" --exclude="temp/" --delete ojs-prod_private-files/ ojs-dev_private-files/
 rsync -avzP --delete ojs-prod_public-files/ ojs-dev_public-files/
+
+# You might not want to do this one! See docs below.
 rsync -avzP --delete ojs-prod_plugins/ ojs-dev_plugins/
 ```
 
@@ -147,6 +149,17 @@ Then:
 - Remove the SQL override
 - Start the stack via systemd
 
+### Do *not* mirror plugins for upgrading!
+
+If the purpose is to test an upgrade, the plugin volume should *not* be
+mirrored, and may in fact need to be destroyed manually since podman volumes
+are only populated with image data if they're empty ("copy up").
+
+Why do we need this? OJS upgrades, even when they claim "No breaking changes,"
+can alter the core plugins. Which sit in the **same directory as custom
+plugins**. So we have to reinstall plugins on top of core rather than just
+doing a plugin backup and restore.
+
 ## Development
 
 *("Development" in this case means running OJS locally, not doing work on the
@@ -156,6 +169,23 @@ Local development is currently just for standing up an empty OJS site just to
 prepare for production. Once we're in production we'll likely alter this a lot
 so that local dev is useful for testing out prod data with new themes, plugins,
 etc.
+
+### Mirroring production locally
+
+There are scripts to help copy data through ssh from inside running containers:
+`docker/mirror.sh` (for SQL) and `docker/rsync-from-prod.sh` (for volumes).
+They're not getting documented here for the moment, just read the scripts. They
+need a rename and maybe a merge, they're a bit confusing, but they get you SQL
+data and volume exports.
+
+Production volumes are *huge*, so be prepared for a slow mirror the first time.
+If you keep the data long-term, though, subsequent mirrors are faster since we
+use rsync.
+
+Don't just set up your compose stack to use all the mirrored volumes directly!
+The public and private files are probably fine to use, but prod's config will
+definitely not work in local dev, and you occasionally don't want to use the
+mirrored plugins (e.g., in an upgrade situation).
 
 ### Setting up admins
 
