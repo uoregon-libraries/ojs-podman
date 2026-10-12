@@ -1,3 +1,9 @@
+NOTE: we abandoned the 3.5.0-3 to 3.5.0-5 upgrade because of a bug. It's fixed
+and should be ready in `*-6`, but that's unreleased as of now, and our upgrade
+window is over.
+
+Bug info: https://github.com/pkp/pkp-lib/issues/13050
+
 # OJS Podman
 
 (Technically podman or docker compose work)
