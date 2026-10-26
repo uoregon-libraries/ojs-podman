@@ -52,18 +52,22 @@
 		file_server browse
 	}
 
-	# Every POST has to get past a Turnstile challenge, except those to OJS's
-	# AJAX endpoints. An AJAX request can't show a challenge page, so once a
-	# user's TPS token expired or ran dry, the backend would break until they
-	# submitted a regular form. These endpoints are (almost) all behind a login
-	# anyway: the API's POST routes all require a user.
+	# POSTs to OJS's "user" and "login" pages have to get past a Turnstile
+	# challenge: registration, login, and password resets are where a bot can
+	# do things without an account. Nothing POSTs to those pages via AJAX
+	# (which can't show a challenge page), only normal form submissions.
+	#
+	# The regex is "^(/index.php)?/<context>(/<locale>)?/(user|login)(/|$)",
+	# except the page name may contain any characters OJS strips out. OJS reads
+	# "/journal/us.er/register" as "/journal/user/register", so without this, a
+	# bot could skip TPS by adding a dot.
 	#
 	# TPS sends verified requests to the internal listener below.
-	@post {
+	@protected {
 		method POST
-		not path */$$$call$$$/* */api/v1/*
+		path_regexp (?i)^(/index\.php)?/[^/]+(/[^/]+)?/[^\w/-]*(u[^\w/-]*s[^\w/-]*e[^\w/-]*r|l[^\w/-]*o[^\w/-]*g[^\w/-]*i[^\w/-]*n)[^\w/-]*(/|$)
 	}
-	handle @post {
+	handle @protected {
 		reverse_proxy tps:8080 {
 			header_up X-Forwarded-For {client_ip}
 		}

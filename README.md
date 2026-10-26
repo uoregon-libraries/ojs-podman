@@ -24,9 +24,10 @@ Requests pass through a few services before reaching OJS:
 - **proxy** (Caddy) is the only service that should be exposed. It serves
   emails captured by smtpdebug (when that's in use), and proxies everything
   else.
-- **tps** ([Turnstile Proxy Server][tps]) gets every POST request, and makes
-  the client pass a Cloudflare Turnstile challenge before the request goes on
-  to OJS (by way of an internal-only Caddy listener).
+- **tps** ([Turnstile Proxy Server][tps]) gets form submissions for login,
+  registration, and password resets, and makes the client pass a Cloudflare
+  Turnstile challenge before the request goes on to OJS (by way of an
+  internal-only Caddy listener).
 - **web** is Apache + PHP running OJS. Never expose it directly: bots could
   skip TPS entirely.
 
@@ -111,11 +112,14 @@ it, and then copying it back in.
 
 ### TPS
 
-Every POST request has to get past a Cloudflare Turnstile challenge, courtesy
-of [TPS][tps]. This keeps bots from spamming registration, login, and other
-forms. The exception is OJS's AJAX endpoints (`$$$call$$$` and `api/v1`),
-since an AJAX request can't show a challenge page. TPS won't start without a
-few settings, which belong in your compose override:
+POSTs to OJS's "user" and "login" pages (registration, login, password resets,
+and subscription purchases) have to get past a Cloudflare Turnstile challenge,
+courtesy of [TPS][tps]. These are the forms a bot can use without an account.
+Nothing else is challenged, on purpose: plenty of OJS's POSTs are AJAX
+requests, which can't show a challenge page, so the backend would break in
+confusing ways. See `docker/config/Caddyfile` for details.
+
+TPS won't start without a few settings, which belong in your compose override:
 
 - `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`: these come from a Turnstile
   widget in Cloudflare's dashboard. For dev, Cloudflare's test keys work fine
@@ -129,10 +133,6 @@ Other things to be aware of:
 - If a proxy with a public IP address fronts the stack, list it in the proxy
   service's `EXTRA_TRUSTED_PROXIES`. Otherwise Caddy, and therefore TPS and
   OJS, will think every request comes from that proxy.
-- A few of OJS's AJAX POSTs aren't under the exempt paths (e.g., admin tools
-  and payment settings). Once a user's TPS token expires (we set
-  `TOKEN_LIFETIME` to 24 hours), those fail until the user submits a normal
-  form, e.g., by logging in again.
 - TPS's challenge stats are available at `/.tps/report` if you set
   `ADMIN_SECRET` on the tps service. See the TPS README for details.
 

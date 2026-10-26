@@ -27,10 +27,6 @@ services:
       dockerfile: Dockerfile-tps
     environment:
       PROXY_TARGET: "http://proxy:8081"
-      # AJAX requests can't solve a challenge. The Caddyfile exempts most of
-      # OJS's, but a few (admin tools, payment settings, ...) aren't under
-      # the exempt paths, so tokens live longer than TPS's default of 4h.
-      TOKEN_LIFETIME: "24h"
       # These have to be set per environment. TPS won't start without them.
       TURNSTILE_SITE_KEY: ""
       TURNSTILE_SECRET_KEY: ""
