@@ -1,0 +1,91 @@
+{
+	# The public listener works out the real client IP. Private ranges (the
+	# container network, a proxy on the same LAN) are always trusted to set
+	# X-Forwarded-For; EXTRA_TRUSTED_PROXIES adds more (space-separated IPs or
+	# CIDR ranges), e.g., a front proxy with a public address.
+	servers :80 {
+		trusted_proxies static private_ranges {$EXTRA_TRUSTED_PROXIES}
+		trusted_proxies_strict
+	}
+
+	# The internal listener only hears from TPS, which passes along the
+	# X-Forwarded-For the public listener set, plus its own hop. Non-strict
+	# mode takes the leftmost entry, so OJS sees the same client IP on a POST
+	# (login, registration, and their captcha checks) as on a GET, even when
+	# the client is on a private network.
+	servers :8081 {
+		trusted_proxies static private_ranges
+	}
+}
+
+# Every reverse_proxy below sets X-Forwarded-For to a single address: the
+# client IP Caddy resolved. OJS takes the *last* address in that header, which
+# would be one of our own containers if each hop appended to it.
+
+# Public listener: every request starts here
+:80 {
+	log
+
+	# TPS's own endpoints. /.tps/beacon must be public so challenge pages can
+	# report that their JavaScript ran. /.tps/report is disabled unless
+	# ADMIN_SECRET is set on the tps service.
+	handle /.tps/* {
+		reverse_proxy tps:8080 {
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+
+	# Emails captured by the smtpdebug service (dev / staging only). This is
+	# inert unless smtpdebug.compose.yml mounts the log volume: the file matcher
+	# fails when the directory doesn't exist, and the request goes to OJS.
+	@smtpdebug {
+		path /smtp-debug-logs /smtp-debug-logs/*
+		file {
+			root /var/local/smtp-debug-logs
+			try_files /
+		}
+	}
+	handle @smtpdebug {
+		redir /smtp-debug-logs /smtp-debug-logs/
+		uri strip_prefix /smtp-debug-logs
+		root * /var/local/smtp-debug-logs
+		file_server browse
+	}
+
+	# Every POST has to get past a Turnstile challenge, except those to OJS's
+	# AJAX endpoints. An AJAX request can't show a challenge page, so once a
+	# user's TPS token expired or ran dry, the backend would break until they
+	# submitted a regular form. These endpoints are (almost) all behind a login
+	# anyway: the API's POST routes all require a user.
+	#
+	# TPS sends verified requests to the internal listener below.
+	@post {
+		method POST
+		not path */$$$call$$$/* */api/v1/*
+	}
+	handle @post {
+		reverse_proxy tps:8080 {
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+
+	handle {
+		reverse_proxy web:80 {
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+}
+
+# Internal listener: TPS's PROXY_TARGET, for requests that passed a challenge.
+# It has no challenge rules, so verified requests don't loop back into TPS.
+#
+# NEVER publish this port: anything that can reach it skips TPS entirely.
+:8081 {
+	reverse_proxy web:80 {
+		# TPS rewrites Host to its proxy target ("proxy:8081"). OJS itself reads
+		# X-Forwarded-Host first, but Apache doesn't, e.g., for the redirect in
+		# our .htaccess, so we restore the original.
+		header_up Host {header.X-Forwarded-Host}
+		header_up X-Forwarded-For {client_ip}
+	}
+}

@@ -19,6 +19,19 @@ symlinked into the running container's OJS code directory. This allows OJS to
 read the file, while it lives in a totally isolated volume, making backing up
 and restoring easier, as well as mounting it for editing.
 
+Requests pass through a few services before reaching OJS:
+
+- **proxy** (Caddy) is the only service that should be exposed. It serves
+  emails captured by smtpdebug (when that's in use), and proxies everything
+  else.
+- **tps** ([Turnstile Proxy Server][tps]) gets every POST request, and makes
+  the client pass a Cloudflare Turnstile challenge before the request goes on
+  to OJS (by way of an internal-only Caddy listener).
+- **web** is Apache + PHP running OJS. Never expose it directly: bots could
+  skip TPS entirely.
+
+[tps]: <https://github.com/uoregon-libraries/turnstile-proxy-server>
+
 ## Setup
 
 ### Compose
@@ -36,10 +49,10 @@ flat compose setup generated for you.
 
 To use compose, you must set up a compose.yml *and* any overrides you want for
 a given environment. We provide a [compose.yml example][2], which is just a
-very simple setup for combining the OJS and DB service definitions. There's
-also an [example compose override][3] for specifying per-environment settings
-if you want to have a base `compose.yml` that defines a core setup you reuse
-across environments.
+very simple setup for combining the OJS, DB, and proxy service definitions.
+There's also an [example compose override][3] for specifying per-environment
+settings if you want to have a base `compose.yml` that defines a core setup you
+reuse across environments.
 
 We strongly recommend familiarizing yourself not only with the [compose
 spec][1], but also with the details of [using multiple compose files][4].
@@ -95,6 +108,33 @@ have to be set:
 Editing the config file is most easily done by mounting the config volume
 somewhere temporarily to edit it, or copying config out of the volume, editing
 it, and then copying it back in.
+
+### TPS
+
+Every POST request has to get past a Cloudflare Turnstile challenge, courtesy
+of [TPS][tps]. This keeps bots from spamming registration, login, and other
+forms. The exception is OJS's AJAX endpoints (`$$$call$$$` and `api/v1`),
+since an AJAX request can't show a challenge page. TPS won't start without a
+few settings, which belong in your compose override:
+
+- `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`: these come from a Turnstile
+  widget in Cloudflare's dashboard. For dev, Cloudflare's test keys work fine
+  (the override example uses keys that always pass).
+- `JWT_SIGNING_KEY`: signs the cookie TPS hands out after a challenge, so it
+  must be long and random in production. A bot that figures it out can skip
+  TPS entirely.
+
+Other things to be aware of:
+
+- If a proxy with a public IP address fronts the stack, list it in the proxy
+  service's `EXTRA_TRUSTED_PROXIES`. Otherwise Caddy, and therefore TPS and
+  OJS, will think every request comes from that proxy.
+- A few of OJS's AJAX POSTs aren't under the exempt paths (e.g., admin tools
+  and payment settings). Once a user's TPS token expires (we set
+  `TOKEN_LIFETIME` to 24 hours), those fail until the user submits a normal
+  form, e.g., by logging in again.
+- TPS's challenge stats are available at `/.tps/report` if you set
+  `ADMIN_SECRET` on the tps service. See the TPS README for details.
 
 ## Mirror prod to staging ("dev")
 
@@ -229,6 +269,9 @@ service that the worker and web service both are able to use by name. You'd
 configure your OJS to point to `smtpdebug` on port 25, and then watch the logs
 from the smtpdebug container. This allows you to run a dev instance and see
 what emails would have been sent, for instance.
+
+Captured emails can also be browsed at `/smtp-debug-logs/`, e.g.,
+`http://localhost:8080/smtp-debug-logs/`.
 
 ### Upgrading
 

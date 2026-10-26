@@ -10,14 +10,15 @@
 # - You should set HTTPS to "on" (and only allow secure traffic to the
 #   container)
 # - You really don't want a dependency on the smtpdebug service.
+# - TPS needs real Turnstile keys and a long, random JWT_SIGNING_KEY.
+# - If a proxy with a public IP sits in front of this stack, it has to be
+#   listed in the proxy service's EXTRA_TRUSTED_PROXIES.
 name: ojs
 services:
   web:
     environment:
       HTTPS: "off"
       SERVER_PORT: "8080"
-    ports:
-      - 8080:80
     depends_on: &dev-deps
       - db
       - smtpdebug
@@ -27,6 +28,20 @@ services:
   # with caution.
   worker:
     depends_on: *dev-deps
+
+  # Caddy is the only service to expose. Don't expose "web": that skips TPS.
+  proxy:
+    ports:
+      - 8080:80
+
+  tps:
+    environment:
+      # Cloudflare's "always passes" test keys. Other test keys (always fails,
+      # forced interactive challenge, etc.) are listed at
+      # <https://developers.cloudflare.com/turnstile/troubleshooting/testing/>
+      TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA"
+      JWT_SIGNING_KEY: "shhhhhh-this-is-very-secret"
 
   db:
     ports:

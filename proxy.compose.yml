@@ -1,0 +1,43 @@
+# Caddy fronts the whole stack, and every POST has to get past TPS (Turnstile
+# Proxy Server) first. See docker/config/Caddyfile for the routing.
+#
+# "proxy" is the only service that should ever be exposed: exposing "web"
+# directly skips TPS.
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile-caddy
+    environment:
+      # Space-separated IPs / CIDR ranges of any proxies in front of this stack
+      # that *aren't* on a private network, so Caddy trusts the client IP they
+      # send. Private ranges are always trusted.
+      EXTRA_TRUSTED_PROXIES: ""
+    depends_on:
+      - web
+      - tps
+    restart: unless-stopped
+
+  # No depends_on here: TPS sends verified requests back to proxy's internal
+  # listener, so that would be a cycle. Neither talks to the other until a
+  # request comes in, by which point both are up.
+  tps:
+    build:
+      context: .
+      dockerfile: Dockerfile-tps
+    environment:
+      PROXY_TARGET: "http://proxy:8081"
+      # AJAX requests can't solve a challenge. The Caddyfile exempts most of
+      # OJS's, but a few (admin tools, payment settings, ...) aren't under
+      # the exempt paths, so tokens live longer than TPS's default of 4h.
+      TOKEN_LIFETIME: "24h"
+      # These have to be set per environment. TPS won't start without them.
+      TURNSTILE_SITE_KEY: ""
+      TURNSTILE_SECRET_KEY: ""
+      JWT_SIGNING_KEY: ""
+    volumes:
+      - tps-data:/var/local/tps/data
+    restart: unless-stopped
+
+volumes:
+  tps-data: {}

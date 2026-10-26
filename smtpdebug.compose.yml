@@ -6,7 +6,8 @@ services:
     volumes:
       - smtp-debug-logs:/var/local/smtp-debug-logs:rw
 
-  web:
+  # Caddy serves the captured emails at /smtp-debug-logs/
+  proxy:
     volumes:
       - smtp-debug-logs:/var/local/smtp-debug-logs:ro
 
