@@ -13,11 +13,6 @@
 name: ojs
 services:
   web:
-    # Uncomment below to build an image with different PHP or OJS.
-    #build:
-    #  args:
-    #    - PHP_VERSION=7.3
-    #    - OJS_VERSION=3.3.0-8
     environment:
       HTTPS: "off"
       SERVER_PORT: "8080"
@@ -27,21 +22,50 @@ services:
       - db
       - smtpdebug
 
-    # Local volume example: this makes critical data volumes live on local disk
-    # for easier editing, rsyncing, etc.
-    volumes: &dev-vols
-      - ./vols/private-files:/var/local/ojs-files
-      - ./vols/public-files:/var/www/html/public
-      - ./vols/plugins:/var/www/html/plugins
-      - ./vols/config:/var/local/config
-
   # Technically for dev you can't actually use a worker unless you disable the
   # "sandbox" setting. Which is generally inadvisable for dev. So... proceed
   # with caution.
   worker:
     depends_on: *dev-deps
-    volumes: *dev-vols
 
   db:
     ports:
       - 3306:3306
+
+# Volume redefinition example for keeping things local in a dev environment.
+#
+# Redefining volumes (rather than in-line directory mounts) keeps the web and
+# workers using the same shared volume setup, keeps any access restrictions we
+# put in (if OJS weren't such a beast to use with secure settings), and keeps
+# permissions predictable, even if still annoying.
+#volumes:
+#  private-files:
+#    driver: local
+#    driver_opts:
+#      type: none
+#      o: bind
+#      device: ${PWD}/vols/private-files
+#  public-files:
+#    driver: local
+#    driver_opts:
+#      type: none
+#      o: bind
+#      device: ${PWD}/vols/public-files
+#  plugins:
+#    driver: local
+#    driver_opts:
+#      type: none
+#      o: bind
+#      device: ${PWD}/vols/plugins
+#  cache:
+#    driver: local
+#    driver_opts:
+#      type: none
+#      o: bind
+#      device: ${PWD}/vols/cache
+#  config:
+#    driver: local
+#    driver_opts:
+#      type: none
+#      o: bind
+#      device: ${PWD}/vols/config

@@ -96,6 +96,70 @@ Editing the config file is most easily done by mounting the config volume
 somewhere temporarily to edit it, or copying config out of the volume, editing
 it, and then copying it back in.
 
+## Mirror prod to staging ("dev")
+
+*Our "dev" site isn't really dev, but we named it that, so we're stuck with it.*
+
+Mirroring data from production to dev is easiest done on the container host via
+rsync and SQL exports.
+
+```bash
+# (ssh into the server as the podman user)
+
+# Get into podman's volume dir
+cd ~/.local/share/containers/storage/volumes/
+
+# Make sure all commands are run inside podman's rootless user namespace -
+# without this, you're going to get permissions problems running the rsync
+# and/or starting up dev
+podman unshare
+
+# Mirror raw files
+rsync -avzP --exclude="usageStats/archive/" --exclude="temp/" --delete ojs-prod_private-files/ ojs-dev_private-files/
+rsync -avzP --delete ojs-prod_public-files/ ojs-dev_public-files/
+
+# You might not want to do this one! See docs below.
+rsync -avzP --delete ojs-prod_plugins/ ojs-dev_plugins/
+```
+
+The SQL dump is slightly more annoying; you *could* rsync, but that's not
+recommended: you have to shut down prod to avoid copying files that are in use,
+and if there's any version difference in prod's MariaDB and dev's, you'll run
+into problems and have to do a DB dump anyway.
+
+*(This can also be a risk with the rsync commands above, but a half-written PDF
+only messes up displaying, while a half-written MariaDB table means the
+database won't start up.)*
+
+```bash
+# (as the podman user, *not* inside the rootless namespace)
+
+# We export the structure separately from the data. I don't remember why, but
+# it was important!
+export devpath=/path/to/ojs/dev
+/usr/local/bin/podman-mysqldump.sh ojs-prod web -hdb -d ojs > $devpath/exports/db/001-struct.sql
+/usr/local/bin/podman-mysqldump.sh ojs-prod web -hdb -t ojs > $devpath/exports/db/002-data.sql
+```
+
+Then:
+
+- Delete the dev db volume, e.g., `podman volume rm ojs-dev_db`
+- Configure dev's compose stack to mount the SQL in
+- Start the DB container, wait for the import to complete, and shut it down
+- Remove the SQL override
+- Start the stack via systemd
+
+### Do *not* mirror plugins for upgrading!
+
+If the purpose is to test an upgrade, the plugin volume should *not* be
+mirrored, and may in fact need to be destroyed manually since podman volumes
+are only populated with image data if they're empty ("copy up").
+
+Why do we need this? OJS upgrades, even when they claim "No breaking changes,"
+can alter the core plugins. Which sit in the **same directory as custom
+plugins**. So we have to reinstall plugins on top of core rather than just
+doing a plugin backup and restore.
+
 ## Development
 
 *("Development" in this case means running OJS locally, not doing work on the
@@ -105,6 +169,23 @@ Local development is currently just for standing up an empty OJS site just to
 prepare for production. Once we're in production we'll likely alter this a lot
 so that local dev is useful for testing out prod data with new themes, plugins,
 etc.
+
+### Mirroring production locally
+
+There are scripts to help copy data through ssh from inside running containers:
+`docker/mirror.sh` (for SQL) and `docker/rsync-from-prod.sh` (for volumes).
+They're not getting documented here for the moment, just read the scripts. They
+need a rename and maybe a merge, they're a bit confusing, but they get you SQL
+data and volume exports.
+
+Production volumes are *huge*, so be prepared for a slow mirror the first time.
+If you keep the data long-term, though, subsequent mirrors are faster since we
+use rsync.
+
+Don't just set up your compose stack to use all the mirrored volumes directly!
+The public and private files are probably fine to use, but prod's config will
+definitely not work in local dev, and you occasionally don't want to use the
+mirrored plugins (e.g., in an upgrade situation).
 
 ### Setting up admins
 
@@ -119,6 +200,18 @@ make
 ./bin/create-admin jechols@uoregon.edu
 ./bin/change-password -email jechols@uoregon.edu -password adm
 ```
+
+### Permissions
+
+Permissions are a pain in OJS in dev, because you're destroying and rebuilding
+volumes regularly, or needing to mirror production volumes which require
+changing permissions locally, which in turn may break your in-container
+permissions.
+
+The fix: after you do anything that breaks container-level privileges,
+*including rebuilding volumes*, run `docker compose exec web fixperms.sh` while
+the stack is up. This can take a minute or two, but it should get all
+permissions set correctly.
 
 ### Tagging in git
 
