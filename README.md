@@ -21,17 +21,17 @@ and restoring easier, as well as mounting it for editing.
 
 Requests pass through a few services before reaching OJS:
 
-- **proxy** (Caddy) is the only service that should be exposed. It serves
-  emails captured by smtpdebug (when that's in use), and proxies everything
-  else.
-- **tps** ([Turnstile Proxy Server][tps]) gets form submissions for login,
-  registration, and password resets, and makes the client pass a Cloudflare
-  Turnstile challenge before the request goes on to OJS (by way of an
-  internal-only Caddy listener).
-- **web** is Apache + PHP running OJS. Never expose it directly: bots could
-  skip TPS entirely.
+- **proxy** (Caddy) is the reverse-proxy in front of the whole stack
+- **tps** ([Turnstile Proxy Server][tps]) blocks some form submissions until
+  people pass a Cloudflare Turnstile challenge
+- **web** is Apache + PHP running OJS
+  - Never expose this directly: bots can then skip TPS entirely
 
 [tps]: <https://github.com/uoregon-libraries/turnstile-proxy-server>
+
+Note: if a proxy with a public IP address fronts the stack (e.g., HAProxy),
+list it in the `proxy` service's `EXTRA_TRUSTED_PROXIES`. Otherwise the whole
+stack reports the wrong IP address.
 
 ## Setup
 
@@ -114,12 +114,12 @@ it, and then copying it back in.
 
 POSTs to OJS's "user" and "login" pages (registration, login, password resets,
 and subscription purchases) have to get past a Cloudflare Turnstile challenge,
-courtesy of [TPS][tps]. These are the forms a bot can use without an account.
-Nothing else is challenged, on purpose: plenty of OJS's POSTs are AJAX
-requests, which can't show a challenge page, so the backend would break in
-confusing ways. See `docker/config/Caddyfile` for details.
+courtesy of [TPS][tps]. Nothing else is challenged for now: OJS has a lot of
+AJAX requests, which can't show a challenge page, so people would just get
+silent failures and might not even notice in some cases that an operation
+failed. See `docker/config/Caddyfile` for details.
 
-TPS won't start without a few settings, which belong in your compose override:
+TPS requires some compose override vars to run:
 
 - `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`: these come from a Turnstile
   widget in Cloudflare's dashboard. For dev, Cloudflare's test keys work fine
@@ -127,14 +127,6 @@ TPS won't start without a few settings, which belong in your compose override:
 - `JWT_SIGNING_KEY`: signs the cookie TPS hands out after a challenge, so it
   must be long and random in production. A bot that figures it out can skip
   TPS entirely.
-
-Other things to be aware of:
-
-- If a proxy with a public IP address fronts the stack, list it in the proxy
-  service's `EXTRA_TRUSTED_PROXIES`. Otherwise Caddy, and therefore TPS and
-  OJS, will think every request comes from that proxy.
-- TPS's challenge stats are available at `/.tps/report` if you set
-  `ADMIN_SECRET` on the tps service. See the TPS README for details.
 
 ## Mirror prod to staging ("dev")
 

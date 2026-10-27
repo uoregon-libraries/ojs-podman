@@ -29,7 +29,7 @@ services:
   worker:
     depends_on: *dev-deps
 
-  # Caddy is the only service to expose. Don't expose "web": that skips TPS.
+  # Expose "proxy" to the host
   proxy:
     ports:
       - 8080:80
