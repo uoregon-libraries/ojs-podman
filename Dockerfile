@@ -1,4 +1,13 @@
 ARG PHP_VERSION="8.2"
+
+# The entrypoint uses render-config to fill in the config file's placeholders.
+# It's Go so that PHP upgrades can't break it.
+FROM docker.io/golang:1-alpine AS render-config
+WORKDIR /usr/local/src/render-config
+COPY docker/render-config ./
+RUN go test ./...
+RUN CGO_ENABLED=0 go build -o /usr/local/bin/render-config .
+
 FROM docker.io/php:${PHP_VERSION}-apache AS web
 
 # Install system dependencies
@@ -69,7 +78,7 @@ RUN chmod 700 /bin/fixperms.sh
 
 # Set up our custom entrypoint stuff
 COPY docker/wait_for_database /usr/local/bin/
-COPY docker/render-config /usr/local/bin/
+COPY --from=render-config /usr/local/bin/render-config /usr/local/bin/
 COPY docker/entrypoint.sh /entrypoint.sh
 
 # Make entering containers nicer
