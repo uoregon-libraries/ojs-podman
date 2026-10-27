@@ -93,4 +93,8 @@ FROM web AS worker
 
 # Override the stop signal since Apache's httpd uses SIGWINCH
 STOPSIGNAL SIGTERM
-CMD ["php", "lib/pkp/tools/jobs.php", "work"]
+
+# The entrypoint needs root, but the worker has to run as Apache's user, or the
+# cache files and uploads it creates are root's, and Apache can't write them.
+# (setpriv execs php, so php still gets the stop signal.)
+CMD ["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "php", "lib/pkp/tools/jobs.php", "work"]

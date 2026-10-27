@@ -100,7 +100,7 @@ have to be set:
   (e.g., you're upgrading from 3.3 or something), you have to generate an app
   key via the OJS tool:
   - Start the stack
-  - Enter the running "web" container
+  - Enter the running "web" container as www-data (see [Permissions](#permissions))
   - In the container, execute `php ./lib/pkp/tools/appKey.php generate --show`
     (without `--show`, it tries to write the key to OJS's read-only copy of
     the config)
@@ -290,6 +290,10 @@ The fix: after you do anything that breaks container-level privileges,
 *including rebuilding volumes*, run `docker compose exec web fixperms.sh` while
 the stack is up. This can take a minute or two, but it should get all
 permissions set correctly.
+
+Run OJS's PHP tools as www-data, e.g., `docker compose exec -u www-data web
+bash`. Otherwise, any files they create (e.g., in `cache/opcache`) are root's,
+and Apache can't write to them until `fixperms.sh` runs again.
 
 ### Tagging in git
 
