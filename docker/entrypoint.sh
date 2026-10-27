@@ -22,6 +22,16 @@ init() {
   # it set up for the OJS web installer
   if [ ! -e $conffile ]; then
     cp /var/www/html/config.TEMPLATE.inc.php $conffile
+
+    # The web installer runs a scheduled task that logs to files_dir *before*
+    # it saves the form's "directory for uploads", and the template's "files"
+    # isn't writable, so the install crashes unless this is right from the
+    # start
+    sed -i 's|^files_dir = files$|files_dir = /var/local/ojs-files|' $conffile
+    if ! grep -q '^files_dir = /var/local/ojs-files$' $conffile; then
+      echo "WARNING: couldn't set files_dir in $conffile. Set it to /var/local/ojs-files before running the web installer."
+    fi
+
     chown www-data $conffile
     chmod 600 $conffile
   fi

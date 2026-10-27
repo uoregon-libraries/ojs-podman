@@ -112,8 +112,9 @@ have to be set:
 - `trust_x_forwarded_for`: Should be "On" to get the proper client IP address
   through the docker stack.
 - `files_dir`: The web installer calls this "directory for uploads". This
-  *must* be set to `/var/local/ojs-files`. Normally the web installer will set
-  this for you, but it's worth double-checking the value.
+  *must* be set to `/var/local/ojs-files`. The entrypoint sets this when it
+  creates the config, since the web installer crashes without it, but it's
+  worth double-checking the value.
 - `public_files_dir`: This *must* be set to `public`.
 - `allowed_hosts`: You *must set this* to your public hostname(s)! In dev this
   can mean `localhost`, `127.0.0.1`, etc. In production it's the URL that
