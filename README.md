@@ -146,9 +146,7 @@ smtp_port = ${OJS_SMTP_PORT}
   and its log says what's missing.
 
 OJS reads a copy of the config, which is read-only and only made at startup.
-So **after editing the config, restart web and worker**. The worker always
-needed a restart to see config changes, but web used to pick them up right
-away.
+So **after editing the config, restart web and worker**.
 
 Until the config has `installed = On`, OJS gets a link to the real file
 instead of a copy, so the web installer can write to it. Placeholders aren't
@@ -164,20 +162,17 @@ Production needs logrotate set up to avoid filling the disk. See
 ### TPS
 
 POSTs to OJS's "user" and "login" pages (registration, login, password resets,
-and subscription purchases) have to get past a Cloudflare Turnstile challenge,
-courtesy of [TPS][tps]. Nothing else is challenged for now: OJS has a lot of
-AJAX requests, which can't show a challenge page, so people would just get
-silent failures and might not even notice in some cases that an operation
-failed. See `docker/config/Caddyfile` for details.
+and subscription purchases) have to get past a Cloudflare Turnstile challenge
+(via [TPS][tps]). Nothing else is challenged for now: OJS has a lot of AJAX
+requests, which would silently fail, which can sometimes cause hard-to-debug
+problems. See `docker/config/Caddyfile` for details.
 
 TPS requires some `.env` vars to run:
 
 - `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`: these come from a Turnstile
-  widget in Cloudflare's dashboard. For dev, Cloudflare's test keys work fine
-  (`.env.example` lists them).
-- `JWT_SIGNING_KEY`: signs the cookie TPS hands out after a challenge, so it
-  must be long and random in production. A bot that figures it out can skip
-  TPS entirely.
+  widget in Cloudflare's dashboard. For dev, Cloudflare's test keys work fine.
+- `JWT_SIGNING_KEY`: signs the TPS cookie, must be long and random in
+  production. A bot that figures it out can skip TPS.
 
 ## Mirror prod to staging ("dev")
 
@@ -309,9 +304,8 @@ If you want to be able to debug emails, you can use the included smtpdebug
 service definition (`smtpdebug.compose.yml`) in your compose stack. Along with
 the compose override example's `depends_on` configuration, this would create a
 service that the worker and web service both are able to use by name. You'd
-configure your OJS to point to `smtpdebug` on port 25 (`.env.example`'s
-`OJS_SMTP_SERVER` and `OJS_SMTP_PORT` do this if your config uses them), and
-then watch the logs from the smtpdebug container. This allows you to run a dev instance and see
+configure your OJS to point to `smtpdebug` on port 25, and then watch the logs
+from the smtpdebug container. This allows you to run a dev instance and see
 what emails would have been sent, for instance.
 
 Captured emails can also be browsed at `/smtp-debug-logs/`, e.g.,
