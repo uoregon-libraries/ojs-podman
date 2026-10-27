@@ -44,7 +44,7 @@ services:
       driver: k8s-file
       options:
         path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/web.log
-    restart: unless-stopped
+    restart: always
 
   worker:
     build:
@@ -57,7 +57,7 @@ services:
       driver: k8s-file
       options:
         path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/worker.log
-    restart: unless-stopped
+    restart: always
 
 volumes:
   private-files: {}

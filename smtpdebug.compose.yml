@@ -9,6 +9,7 @@ services:
       driver: k8s-file
       options:
         path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/smtpdebug.log
+    restart: always
 
   # Caddy serves the captured emails at /smtp-debug-logs/
   proxy:

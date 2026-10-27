@@ -17,7 +17,7 @@ services:
       driver: k8s-file
       options:
         path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/proxy.log
-    restart: unless-stopped
+    restart: always
 
   # No depends_on here: TPS sends verified requests back to proxy's internal
   # listener, so that would be a cycle. Neither talks to the other until a
@@ -38,7 +38,7 @@ services:
       driver: k8s-file
       options:
         path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/tps.log
-    restart: unless-stopped
+    restart: always
 
 volumes:
   tps-data: {}
