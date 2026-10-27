@@ -1,13 +1,20 @@
 services:
   db:
     image: docker.io/mariadb:12
+    # MariaDB only reads these when it creates the database, on the first
+    # start with an empty volume. Changing them later doesn't change the
+    # database: you'd have to do that in SQL, then update `.env` to match.
     environment:
-      MYSQL_DATABASE: "ojs"
-      MYSQL_USER: "ojs"
-      MYSQL_PASSWORD: "ojs"
-      MYSQL_ROOT_PASSWORD: "root_password"
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE must be set}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER must be set}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD must be set}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set}
     volumes:
       - db:/var/lib/mysql
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/db.log
 
 volumes:
   db: {}

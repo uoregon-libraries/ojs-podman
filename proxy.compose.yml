@@ -9,13 +9,14 @@ services:
       context: .
       dockerfile: Dockerfile-caddy
     environment:
-      # Space-separated IPs / CIDR ranges of any proxies in front of this stack
-      # that *aren't* on a private network, so Caddy trusts the client IP they
-      # send. Private ranges are always trusted.
-      EXTRA_TRUSTED_PROXIES: ""
+      EXTRA_TRUSTED_PROXIES: ${EXTRA_TRUSTED_PROXIES:-}
     depends_on:
       - web
       - tps
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/proxy.log
     restart: unless-stopped
 
   # No depends_on here: TPS sends verified requests back to proxy's internal
@@ -27,12 +28,16 @@ services:
       dockerfile: Dockerfile-tps
     environment:
       PROXY_TARGET: "http://proxy:8081"
-      # These have to be set per environment. TPS won't start without them.
-      TURNSTILE_SITE_KEY: ""
-      TURNSTILE_SECRET_KEY: ""
-      JWT_SIGNING_KEY: ""
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:?copy .env.example to .env and set the TPS secrets}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?copy .env.example to .env and set the TPS secrets}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?copy .env.example to .env and set the TPS secrets}
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
     volumes:
       - tps-data:/var/local/tps/data
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/tps.log
     restart: unless-stopped
 
 volumes:

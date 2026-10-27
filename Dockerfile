@@ -69,6 +69,7 @@ RUN chmod 700 /bin/fixperms.sh
 
 # Set up our custom entrypoint stuff
 COPY docker/wait_for_database /usr/local/bin/
+COPY docker/render-config /usr/local/bin/
 COPY docker/entrypoint.sh /entrypoint.sh
 
 # Make entering containers nicer

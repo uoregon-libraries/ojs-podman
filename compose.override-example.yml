@@ -1,24 +1,19 @@
 # Example overrides for a dev environment, assuming you pull `ojs.compose.yaml`
-# and `db.compose.yml` into your main compose file. This shows how your web
-# environment might look in development.
+# and `db.compose.yml` into your main compose file.
+#
+# Overrides are only for structural changes: published ports, dependencies,
+# volume redefinitions, etc. Settings that vary per environment (URLs,
+# passwords, TPS keys) go in `.env`; see `.env.example`.
 #
 # For a production setup, you will definitely not use this as-is. Some
 # examples of what might change:
 #
-# - You might use an external database, so you'd have to specify the production
-#   database env vars here and remove the "db" service
-# - You should set HTTPS to "on" (and only allow secure traffic to the
-#   container)
+# - You might use an external database, so you'd remove the "db" service (and
+#   point MYSQL_HOST in `.env` at the real database)
 # - You really don't want a dependency on the smtpdebug service.
-# - TPS needs real Turnstile keys and a long, random JWT_SIGNING_KEY.
-# - If a proxy with a public IP sits in front of this stack, it has to be
-#   listed in the proxy service's EXTRA_TRUSTED_PROXIES.
 name: ojs
 services:
   web:
-    environment:
-      HTTPS: "off"
-      SERVER_PORT: "8080"
     depends_on: &dev-deps
       - db
       - smtpdebug
@@ -29,19 +24,11 @@ services:
   worker:
     depends_on: *dev-deps
 
-  # Expose "proxy" to the host
+  # Expose "proxy" to the host. In dev, the port should match PUBLIC_PORT in
+  # `.env`.
   proxy:
     ports:
       - 8080:80
-
-  tps:
-    environment:
-      # Cloudflare's "always passes" test keys. Other test keys (always fails,
-      # forced interactive challenge, etc.) are listed at
-      # <https://developers.cloudflare.com/turnstile/troubleshooting/testing/>
-      TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
-      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA"
-      JWT_SIGNING_KEY: "shhhhhh-this-is-very-secret"
 
   db:
     ports:

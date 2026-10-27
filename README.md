@@ -14,10 +14,11 @@ image other than "wrapper" stuff like Apache overrides, entrypoint script, etc.
 
 The "config" volume looks weird, but is done this way in order to keep the
 config totally separated from the code: it starts as an empty directory, and on
-first run gets the base configuration file added to it. That file is then
-symlinked into the running container's OJS code directory. This allows OJS to
-read the file, while it lives in a totally isolated volume, making backing up
-and restoring easier, as well as mounting it for editing.
+first run gets the base configuration file added to it. On startup, the
+entrypoint copies that file into OJS's code directory, filling in values from
+the environment (see [Config](#config)). The real file lives in a totally
+isolated volume, making backing up and restoring easier, as well as mounting it
+for editing.
 
 Requests pass through a few services before reaching OJS:
 
@@ -30,10 +31,22 @@ Requests pass through a few services before reaching OJS:
 [tps]: <https://github.com/uoregon-libraries/turnstile-proxy-server>
 
 Note: if a proxy with a public IP address fronts the stack (e.g., HAProxy),
-list it in the `proxy` service's `EXTRA_TRUSTED_PROXIES`. Otherwise the whole
+list it in `.env`'s `EXTRA_TRUSTED_PROXIES`. Otherwise the whole
 stack reports the wrong IP address.
 
 ## Setup
+
+### `.env`
+
+You must have a `.env` file: copy `.env.example` and edit it. It holds the
+settings that change per environment (URLs, passwords, TPS keys, etc.), which
+compose fills into the compose files.
+
+- Don't put environment vars in compose overrides. Overrides are for
+  structural stuff like published ports and volumes.
+- After changing `.env`, run `up -d`, not `restart`: env changes only apply
+  when compose recreates a container.
+- Vars exported in your shell override `.env`, so don't export any of them.
 
 ### Compose
 
@@ -51,9 +64,9 @@ flat compose setup generated for you.
 To use compose, you must set up a compose.yml *and* any overrides you want for
 a given environment. We provide a [compose.yml example][2], which is just a
 very simple setup for combining the OJS, DB, and proxy service definitions.
-There's also an [example compose override][3] for specifying per-environment
-settings if you want to have a base `compose.yml` that defines a core setup you
-reuse across environments.
+There's also an [example compose override][3] for structural changes per
+environment (ports, dependencies, volumes) if you want to have a base
+`compose.yml` that defines a core setup you reuse across environments.
 
 We strongly recommend familiarizing yourself not only with the [compose
 spec][1], but also with the details of [using multiple compose files][4].
@@ -73,13 +86,10 @@ with the OJS web installer, which will get some basic settings written for you.
 Some settings have to be set to hard-coded values for the compose setup to run:
 
 - The "directory for uploads" must be `/var/local/ojs-files`
-- Database settings should be as follows (for production you should use compose
-  overrides and have a secure password, or else be 100% sure your database
-  service is locked down):
-  - Host: "db"
-  - Username: "ojs"
-  - Password: "ojs"
-  - Database name: "ojs"
+- Database settings must match the `MYSQL_` vars in `.env`. For dev that's
+  "db" for the host, and "ojs" for the username, password, and database name.
+  Production should have a secure password, or else be 100% sure the database
+  service is locked down.
 
 You generally still need to edit the config file after it's been created, as
 the web installer skips a lot of critical things. You need to examine all
@@ -91,7 +101,10 @@ have to be set:
   key via the OJS tool:
   - Start the stack
   - Enter the running "web" container
-  - In the container, execute `php ./lib/pkp/tools/appKey.php generate`
+  - In the container, execute `php ./lib/pkp/tools/appKey.php generate --show`
+    (without `--show`, it tries to write the key to OJS's read-only copy of
+    the config)
+  - Put the key in `.env`'s `OJS_APP_KEY`, or straight in the config file
 - `installed`: If you don't plan to use the web installer, and will manage all
   config yourself, this must be "Off".
 - `restful_urls`: You usually want this set to "On": the provided docker image
@@ -110,6 +123,43 @@ Editing the config file is most easily done by mounting the config volume
 somewhere temporarily to edit it, or copying config out of the volume, editing
 it, and then copying it back in.
 
+#### Placeholders
+
+OJS doesn't read environment variables, so the entrypoint fakes it: when the
+container starts, any `${VAR}` in the config file is replaced with the value
+of the `VAR` environment variable. For example:
+
+```ini
+base_url = "${OJS_BASE_URL}"
+allowed_hosts = '${OJS_ALLOWED_HOSTS}'
+password = "${MYSQL_PASSWORD}"
+smtp_port = ${OJS_SMTP_PORT}
+```
+
+- The vars come from `.env`, but only the ones `ojs.compose.yml` passes to
+  the container: the `MYSQL_` vars and a handful of `OJS_` ones. To add one,
+  add it there and to `.env.example`.
+- Put text in quotes. Leave on/off settings and numbers unquoted: OJS reads a
+  quoted "Off" as text, which counts as *on*.
+- If the config uses a var that's blank or unset, the container won't start,
+  and its log says what's missing.
+
+OJS reads a copy of the config, which is read-only and only made at startup.
+So **after editing the config, restart web and worker**. The worker always
+needed a restart to see config changes, but web used to pick them up right
+away.
+
+Until the config has `installed = On`, OJS gets a link to the real file
+instead of a copy, so the web installer can write to it. Placeholders aren't
+filled in during that time.
+
+### Container logs
+
+Each service writes its stdout/stderr to its own file in `CONTAINER_LOG_DIR`
+(`web.log`, `proxy.log`, etc.), so logs survive restarts and `down`.
+Production needs logrotate set up to avoid filling the disk. See
+[docs/container-logs.md](docs/container-logs.md).
+
 ### TPS
 
 POSTs to OJS's "user" and "login" pages (registration, login, password resets,
@@ -119,11 +169,11 @@ AJAX requests, which can't show a challenge page, so people would just get
 silent failures and might not even notice in some cases that an operation
 failed. See `docker/config/Caddyfile` for details.
 
-TPS requires some compose override vars to run:
+TPS requires some `.env` vars to run:
 
 - `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`: these come from a Turnstile
   widget in Cloudflare's dashboard. For dev, Cloudflare's test keys work fine
-  (the override example uses keys that always pass).
+  (`.env.example` lists them).
 - `JWT_SIGNING_KEY`: signs the cookie TPS hands out after a challenge, so it
   must be long and random in production. A bot that figures it out can skip
   TPS entirely.
@@ -258,8 +308,9 @@ If you want to be able to debug emails, you can use the included smtpdebug
 service definition (`smtpdebug.compose.yml`) in your compose stack. Along with
 the compose override example's `depends_on` configuration, this would create a
 service that the worker and web service both are able to use by name. You'd
-configure your OJS to point to `smtpdebug` on port 25, and then watch the logs
-from the smtpdebug container. This allows you to run a dev instance and see
+configure your OJS to point to `smtpdebug` on port 25 (`.env.example`'s
+`OJS_SMTP_SERVER` and `OJS_SMTP_PORT` do this if your config uses them), and
+then watch the logs from the smtpdebug container. This allows you to run a dev instance and see
 what emails would have been sent, for instance.
 
 Captured emails can also be browsed at `/smtp-debug-logs/`, e.g.,

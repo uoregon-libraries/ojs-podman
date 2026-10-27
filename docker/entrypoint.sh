@@ -1,6 +1,15 @@
 #!/bin/bash
 
 conffile=/var/local/config/config.inc.php
+ojsconf=/var/www/html/config.inc.php
+
+# Mirrors how OJS reads the setting: an unquoted Off, False, 0, or blank value
+# (or no setting at all) means it's not installed
+is_installed() {
+  grep -qiE '^\s*installed\s*=' $conffile &&
+    ! grep -qiE '^\s*installed\s*=\s*(off|false|0)?\s*$' $conffile
+}
+
 init() {
   # This adds a lot of overhead to container startup, and is usually
   # unnecessary, but ensuring this happens seems like a good idea all the same.
@@ -17,12 +26,26 @@ init() {
     chmod 600 $conffile
   fi
 
-  # OJS sometimes blows away our symlink after we've created it, so we just have
-  # to keep forcibly creating it
-  echo "Force-linking $conffile to local config"
-  rm -f /var/www/html/config.inc.php
+  # OJS reads a copy of our config with the "${VAR}" placeholders filled in
+  # from the environment. The copy is read-only to OJS, and only made here, so
+  # config changes need a container restart (and .env changes need `up -d`).
+  #
+  # Before OJS is installed, though, the web installer has to write the real
+  # file, so OJS gets a link to it instead.
+  rm -f $ojsconf
   chmod +w /var/www/html
-  su -s /bin/bash -c "ln -s $conffile /var/www/html/config.inc.php" - www-data
+  if is_installed; then
+    echo "Rendering $conffile to $ojsconf"
+    if ! (umask 077 && render-config $conffile > $ojsconf); then
+      rm -f $ojsconf
+      exit 1
+    fi
+    chown root:www-data $ojsconf
+    chmod 440 $ojsconf
+  else
+    echo "OJS isn't installed: linking $conffile for the web installer"
+    su -s /bin/bash -c "ln -s $conffile $ojsconf" - www-data
+  fi
   chmod -w /var/www/html
 
   # Wait for the database last: the db container is starting up in parallel, so

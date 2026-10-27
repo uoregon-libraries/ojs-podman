@@ -1,8 +1,9 @@
 # This is a basic example of simply combining the OJS and DB service
-# definitions. Copy this to `compose.yml`, set up an override, and go!
+# definitions. Copy this to `compose.yml`, copy `.env.example` to `.env` and
+# edit it, set up an override, and go!
 #
-# `compose.override-example.yml` shows how you might expose ports, adjust
-# environment variables, etc.
+# `compose.override-example.yml` shows how you might expose ports, add
+# dependencies, etc.
 include:
   - ojs.compose.yml
   - db.compose.yml

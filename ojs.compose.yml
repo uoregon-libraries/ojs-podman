@@ -1,3 +1,28 @@
+# Per-environment settings come from `.env` (see .env.example). Don't set
+# environment vars in an override, or settings drift between files.
+
+# Shared by web and worker via YAML merge keys (`<<: *ojs-env`), so each gets
+# its own copy. A service that sets `environment:` has to start it with
+# `<<: *ojs-env`, or it loses all of these.
+x-ojs-env: &ojs-env
+  # wait_for_database uses these, as does the podman-mysqldump.sh script we
+  # use to export production data, so don't rename them
+  MYSQL_HOST: ${MYSQL_HOST:?MYSQL_HOST must be set}
+  MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE must be set}
+  MYSQL_USER: ${MYSQL_USER:?MYSQL_USER must be set}
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD must be set}
+
+  # Values for "${VAR}" placeholders in config.inc.php (see "Config" in
+  # README.md). These can be blank if the config doesn't use them; if it does,
+  # the container refuses to start until they're set.
+  OJS_BASE_URL: ${OJS_BASE_URL:-}
+  OJS_ALLOWED_HOSTS: ${OJS_ALLOWED_HOSTS:-}
+  OJS_APP_KEY: ${OJS_APP_KEY:-}
+  OJS_SALT: ${OJS_SALT:-}
+  OJS_API_KEY_SECRET: ${OJS_API_KEY_SECRET:-}
+  OJS_SMTP_SERVER: ${OJS_SMTP_SERVER:-}
+  OJS_SMTP_PORT: ${OJS_SMTP_PORT:-}
+
 services:
   web:
     build:
@@ -10,12 +35,15 @@ services:
       - cache:/var/www/html/cache
       - config:/var/local/config
     environment:
-      MYSQL_HOST: "db"
-      MYSQL_DATABASE: "ojs"
-      MYSQL_USER: "ojs"
-      MYSQL_PASSWORD: "ojs"
-      HTTPS: ""
-      SERVER_PORT: ""
+      <<: *ojs-env
+      # Apache passes these to OJS, which can't tell the public scheme and
+      # port on its own from behind a proxy
+      HTTPS: ${PUBLIC_HTTPS:-}
+      SERVER_PORT: ${PUBLIC_PORT:-}
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/web.log
     restart: unless-stopped
 
   worker:
@@ -24,10 +52,11 @@ services:
       target: worker
     volumes: *vols
     environment:
-      MYSQL_HOST: "db"
-      MYSQL_DATABASE: "ojs"
-      MYSQL_USER: "ojs"
-      MYSQL_PASSWORD: "ojs"
+      <<: *ojs-env
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/worker.log
     restart: unless-stopped
 
 volumes:
