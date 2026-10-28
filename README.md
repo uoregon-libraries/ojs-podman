@@ -14,7 +14,7 @@ image other than "wrapper" stuff like Apache overrides, entrypoint script, etc.
 
 The "config" volume looks weird, but is done this way in order to keep the
 config totally separated from the code: it starts as an empty directory, and on
-first run gets the base configuration file added to it. On startup, the
+first run gets our base config file added to it. On startup, the
 entrypoint copies that file into OJS's code directory, filling in values from
 the environment (see [Config](#config)). The real file lives in a totally
 isolated volume, making backing up and restoring easier, as well as mounting it
@@ -80,66 +80,48 @@ etc. can be critical to making your project work well across environments.
 
 ### Config
 
-The first time you start the "web" container, a config file will be created
-from the OJS config template file. If you don't modify it, you'll be presented
-with the OJS web installer, which will get some basic settings written for you.
-Some settings have to be set to hard-coded values for the compose setup to run:
+The first time you start the "web" container, our base config
+(`docker/config/config.base.inc.php`) is copied into the config volume. It's
+OJS's config template, set up for this stack:
 
-- The "directory for uploads" must be `/var/local/ojs-files`
-- Database settings must match the `MYSQL_` vars in `.env`. For dev that's
-  "db" for the host, and "ojs" for the username, password, and database name.
-  Production should have a secure password, or else be 100% sure the database
-  service is locked down.
+- Settings that change per environment (URLs, allowed hosts, database,
+  secrets, mail server, OAI repository ID) are filled in from `.env` (see
+  [Placeholders](#placeholders)). Most of the URL-related ones are built from
+  `PUBLIC_SCHEME`, `PUBLIC_HOST`, and `PUBLIC_PORT_SUFFIX`.
+- Settings the stack depends on are already set: `files_dir` is
+  `/var/local/ojs-files`, `restful_urls` and `trust_x_forwarded_for` are On,
+  mail goes out over SMTP, and `job_runner` is Off, since the "worker" service
+  runs jobs
+- Settings that are the same in every environment match our production site,
+  e.g., `time_zone` and `enable_beacon`
 
-You generally still need to edit the config file after it's been created, as
-the web installer skips a lot of critical things. You need to examine all
-values carefully. Here are some settings that are confusing / not obvious they
-have to be set:
+So you shouldn't need to edit the config to get a site running.
 
-- `app_key`: This is set by the web installer, but if you aren't using that
-  (e.g., you're upgrading from 3.3 or something), you have to generate an app
-  key via the OJS tool:
-  - Start the stack
-  - Enter the running "web" container as www-data (see [Permissions](#permissions))
-  - In the container, execute `php ./lib/pkp/tools/appKey.php generate --show`
-    (without `--show`, it tries to write the key to OJS's read-only copy of
-    the config)
-  - Put the key in `.env`'s `OJS_APP_KEY`, or straight in the config file
-- `installed`: If you don't plan to use the web installer, and will manage all
-  config yourself, this must be "Off".
-- `restful_urls`: You usually want this set to "On": the provided docker image
-  sets up Apache to work with this setting.
-- `trust_x_forwarded_for`: Should be "On" to get the proper client IP address
-  through the docker stack.
-- `files_dir`: The web installer calls this "directory for uploads". This
-  *must* be set to `/var/local/ojs-files`. The entrypoint sets this when it
-  creates the config, since the web installer crashes without it, but it's
-  worth double-checking the value.
-- `public_files_dir`: This *must* be set to `public`.
-- `allowed_hosts`: You *must set this* to your public hostname(s)! In dev this
-  can mean `localhost`, `127.0.0.1`, etc. In production it's the URL that
-  proxies to the app.
-
-Editing the config file is most easily done by mounting the config volume
-somewhere temporarily to edit it, or copying config out of the volume, editing
-it, and then copying it back in.
+Once it's in the volume, the config is yours: rebuilding the image doesn't
+change it, and changes to the base config only reach new sites. To edit it,
+mount the config volume somewhere temporarily, or copy the config out of the
+volume, edit it, and copy it back in.
 
 #### Placeholders
 
 OJS doesn't read environment variables, so the entrypoint fakes it: when the
 container starts, any `${VAR}` in the config file is replaced with the value
-of the `VAR` environment variable. For example:
+of the `VAR` environment variable. For example, from the base config:
 
 ```ini
-base_url = "${OJS_BASE_URL}"
+installed = ${OJS_INSTALLED}
+base_url = "${PUBLIC_URL}"
 allowed_hosts = '${OJS_ALLOWED_HOSTS}'
 password = "${MYSQL_PASSWORD}"
 smtp_port = ${OJS_SMTP_PORT}
 ```
 
 - The vars come from `.env`, but only the ones `ojs.compose.yml` passes to
-  the container: the `MYSQL_` vars and a handful of `OJS_` ones. To add one,
-  add it there and to `.env.example`.
+  the container: the `MYSQL_` vars, and some `PUBLIC_` and `OJS_` ones. To add
+  one, add it there and to `.env.example`.
+- The exception is `HTTPS`, which the entrypoint sets to "on" or "off" from
+  `PUBLIC_SCHEME`. It also passes that to OJS, along with the public port,
+  since OJS can't tell either one from behind our proxies.
 - Put text in quotes. Leave on/off settings and numbers unquoted: OJS reads a
   quoted "Off" as text, which counts as *on*.
 - If the config uses a var that's blank or unset, the container won't start,
@@ -148,9 +130,42 @@ smtp_port = ${OJS_SMTP_PORT}
 OJS reads a copy of the config, which is read-only and only made at startup.
 So **after editing the config, restart web and worker**.
 
-Until the config has `installed = On`, OJS gets a link to the real file
-instead of a copy, so the web installer can write to it. Placeholders aren't
-filled in during that time.
+#### New site
+
+1. In `.env`, leave `OJS_INSTALLED` at "Off", and generate the secrets (see
+   `.env.example`).
+2. Start the stack and visit the site to get OJS's web installer.
+3. Fill in the installer's form:
+   - The "directory for uploads" must be `/var/local/ojs-files`
+   - The database settings must match the `MYSQL_` vars in `.env`. For dev
+     that's "db" for the host, and "ojs" for the username, password, and
+     database name.
+4. When the install is done, OJS says it couldn't write the config, and shows
+   what it would have written. That's expected: OJS's copy of the config is
+   read-only, and the base config already gets those settings from `.env`.
+   (Ignore the app key it shows, too: OJS uses `OJS_APP_KEY`.)
+5. Set `OJS_INSTALLED=On` in `.env`, and run `up -d`.
+
+Since the installer can't write the config, its time zone and OAI repository
+ID fields don't do anything: OJS uses the base config's time zone and
+`OJS_OAI_REPOSITORY_ID`.
+
+#### Existing site
+
+For a site whose database is already set up (e.g., a migration from another
+server):
+
+- Set `OJS_INSTALLED=On`
+- Copy the old config's `app_key`, `salt`, and `api_key_secret` into `.env`.
+  If it doesn't have an app key (older OJS versions don't), generate one (see
+  `.env.example`).
+- Set `OJS_OAI_REPOSITORY_ID` to the old config's `repository_id`, which must
+  never change on a live site
+- Copy anything else the old site customized into the new config
+
+You can use the old config instead of the base config, but OJS won't use
+`.env` until you swap the config's values for placeholders. Either way, diff it
+against the base config to catch the settings this stack depends on.
 
 ### Container logs
 
@@ -307,10 +322,11 @@ worth revisiting because it's a pretty awful strategy, but we need *something*.
 If you want to be able to debug emails, you can use the included smtpdebug
 service definition (`smtpdebug.compose.yml`) in your compose stack. Along with
 the compose override example's `depends_on` configuration, this would create a
-service that the worker and web service both are able to use by name. You'd
-configure your OJS to point to `smtpdebug` on port 25, and then watch the logs
-from the smtpdebug container. This allows you to run a dev instance and see
-what emails would have been sent, for instance.
+service that the worker and web service both are able to use by name. Point
+`.env`'s `OJS_SMTP_SERVER` at `smtpdebug` on port 25 (the `.env.example`
+defaults), and then watch the logs from the smtpdebug container. This allows
+you to run a dev or staging instance and see what emails would have been sent,
+for instance.
 
 Captured emails can also be browsed at `/smtp-debug-logs/`, e.g.,
 `http://localhost:8080/smtp-debug-logs/`.
@@ -319,8 +335,10 @@ Captured emails can also be browsed at `/smtp-debug-logs/`, e.g.,
 
 To do an upgrade, there are several manual steps to take:
 
-- Config: Look at all differences from the old config template to the new. Make
-  sure the above "Config" section is updated.
+- Config: Look at all differences from the old config template to the new,
+  and apply them to `docker/config/config.base.inc.php` (including the version
+  in its header). Existing sites' configs don't change on their own. Make sure
+  the above "Config" section is updated.
 - Container / image reset:
   - Check the PHP version with what the new OJS requires. Modify the Docker
     `FROM` line if it's changed.
@@ -330,7 +348,7 @@ To do an upgrade, there are several manual steps to take:
     clean and updated build.
   - Delete all volumes. Remember this is for *dev upgrades*, **not**
     production!
-- Do the web install and you should be set.
+- Do the web install (see [New site](#new-site)) and you should be set.
 
 **Note**: this process is for upgrading OJS *in this repo*. Production updates
 might be similar, *but we do not know. They may be completely different in ways

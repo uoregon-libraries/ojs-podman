@@ -10,13 +10,18 @@ x-ojs-env: &ojs-env
   MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE must be set}
   MYSQL_USER: ${MYSQL_USER:?MYSQL_USER must be set}
   MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD must be set}
-  OJS_BASE_URL: ${OJS_BASE_URL:-}
+  PUBLIC_SCHEME: ${PUBLIC_SCHEME:?PUBLIC_SCHEME must be set}
+  PUBLIC_PORT_SUFFIX: ${PUBLIC_PORT_SUFFIX:-}
+  PUBLIC_URL: ${PUBLIC_URL:-}
+  OJS_INSTALLED: ${OJS_INSTALLED:-}
   OJS_ALLOWED_HOSTS: ${OJS_ALLOWED_HOSTS:-}
+  OJS_OAI_REPOSITORY_ID: ${OJS_OAI_REPOSITORY_ID:-}
   OJS_APP_KEY: ${OJS_APP_KEY:-}
   OJS_SALT: ${OJS_SALT:-}
   OJS_API_KEY_SECRET: ${OJS_API_KEY_SECRET:-}
   OJS_SMTP_SERVER: ${OJS_SMTP_SERVER:-}
   OJS_SMTP_PORT: ${OJS_SMTP_PORT:-}
+  OJS_ENVELOPE_SENDER: ${OJS_ENVELOPE_SENDER:-}
 
 services:
   web:
@@ -31,10 +36,6 @@ services:
       - config:/var/local/config
     environment:
       <<: *ojs-env
-      # Apache passes these to OJS, which can't tell the public scheme and
-      # port on its own from behind a proxy
-      HTTPS: ${PUBLIC_HTTPS:-}
-      SERVER_PORT: ${PUBLIC_PORT:-}
     logging:
       driver: k8s-file
       options:

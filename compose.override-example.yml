@@ -24,8 +24,8 @@ services:
   worker:
     depends_on: *dev-deps
 
-  # Expose "proxy" to the host. In dev, the port should match PUBLIC_PORT in
-  # `.env`.
+  # Expose "proxy" to the host. In dev, the port should match
+  # PUBLIC_PORT_SUFFIX in `.env`.
   proxy:
     ports:
       - 8080:80

@@ -3,13 +3,6 @@
 conffile=/var/local/config/config.inc.php
 ojsconf=/var/www/html/config.inc.php
 
-# Mirrors how OJS reads the setting: an unquoted Off, False, 0, or blank value
-# (or no setting at all) means it's not installed
-is_installed() {
-  grep -qiE '^\s*installed\s*=' $conffile &&
-    ! grep -qiE '^\s*installed\s*=\s*(off|false|0)?\s*$' $conffile
-}
-
 init() {
   # This adds a lot of overhead to container startup, and is usually
   # unnecessary, but ensuring this happens seems like a good idea all the same.
@@ -18,45 +11,42 @@ init() {
   fixperms.sh
   echo "Permissions set"
 
-  # If config.inc.php isn't present in our volume, we need to create it and get
-  # it set up for the OJS web installer
+  # If config.inc.php isn't present in our volume, start from our base config,
+  # which takes its per-environment settings from .env
   if [ ! -e $conffile ]; then
-    cp /var/www/html/config.TEMPLATE.inc.php $conffile
-
-    # The web installer runs a scheduled task that logs to files_dir *before*
-    # it saves the form's "directory for uploads", and the template's "files"
-    # isn't writable, so the install crashes unless this is right from the
-    # start
-    sed -i 's|^files_dir = files$|files_dir = /var/local/ojs-files|' $conffile
-    if ! grep -q '^files_dir = /var/local/ojs-files$' $conffile; then
-      echo "WARNING: couldn't set files_dir in $conffile. Set it to /var/local/ojs-files before running the web installer."
-    fi
-
+    cp /usr/local/share/ojs/config.base.inc.php $conffile
     chown www-data $conffile
     chmod 600 $conffile
+  fi
+
+  # OJS can't tell the public scheme and port from behind our proxies, so
+  # Apache passes these to it (see docker/config/htaccess). The config uses
+  # HTTPS, too.
+  case "$PUBLIC_SCHEME" in
+    http) export HTTPS=off SERVER_PORT=80 ;;
+    https) export HTTPS=on SERVER_PORT=443 ;;
+    *)
+      echo "PUBLIC_SCHEME must be http or https, not \"$PUBLIC_SCHEME\""
+      exit 1
+      ;;
+  esac
+  if [ -n "$PUBLIC_PORT_SUFFIX" ]; then
+    export SERVER_PORT=${PUBLIC_PORT_SUFFIX#:}
   fi
 
   # OJS reads a copy of our config with the "${VAR}" placeholders filled in
   # from the environment. The copy is read-only to OJS, and only made here, so
   # config changes need a container restart (and .env changes need `up -d`).
-  #
-  # Before OJS is installed, though, the web installer has to write the real
-  # file, so OJS gets a link to it instead.
+  # Even the web installer can't write it, so it shows what it would have
+  # written instead.
+  echo "Rendering $conffile to $ojsconf"
   rm -f $ojsconf
-  chmod +w /var/www/html
-  if is_installed; then
-    echo "Rendering $conffile to $ojsconf"
-    if ! (umask 077 && render-config $conffile > $ojsconf); then
-      rm -f $ojsconf
-      exit 1
-    fi
-    chown root:www-data $ojsconf
-    chmod 440 $ojsconf
-  else
-    echo "OJS isn't installed: linking $conffile for the web installer"
-    su -s /bin/bash -c "ln -s $conffile $ojsconf" - www-data
+  if ! (umask 077 && render-config $conffile > $ojsconf); then
+    rm -f $ojsconf
+    exit 1
   fi
-  chmod -w /var/www/html
+  chown root:www-data $ojsconf
+  chmod 440 $ojsconf
 
   # Wait for the database last: the db container is starting up in parallel, so
   # there's no point making the above operations wait on this
