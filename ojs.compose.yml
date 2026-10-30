@@ -55,6 +55,21 @@ services:
         path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/worker.log
     restart: always
 
+  # Runs OJS's scheduled tasks (reminders, usage stats, etc.) every minute, in
+  # place of a host cron job
+  scheduler:
+    build:
+      context: .
+      target: scheduler
+    volumes: *vols
+    environment:
+      <<: *ojs-env
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/scheduler.log
+    restart: always
+
 volumes:
   private-files: {}
   public-files: {}

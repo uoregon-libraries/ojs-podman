@@ -99,3 +99,8 @@ STOPSIGNAL SIGTERM
 # cache files and uploads it creates are root's, and Apache can't write them.
 # (setpriv execs php, so php still gets the stop signal.)
 CMD ["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "php", "lib/pkp/tools/jobs.php", "work"]
+
+# Same as the worker (stop signal, Apache's user), but for scheduled tasks
+FROM worker AS scheduler
+COPY docker/scheduler.sh /usr/local/bin/
+CMD ["setpriv", "--reuid=www-data", "--regid=www-data", "--init-groups", "/usr/local/bin/scheduler.sh"]

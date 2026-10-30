@@ -584,7 +584,7 @@ job_runner_max_memory = 80
 ; Controls whether queued jobs should be processed by the task scheduler.
 ; This setting has no effect when the job_runner and the [schedule].task_runner are enabled,
 ; on this situation the jobs will be processed solely by the job runner.
-process_jobs_at_task_scheduler = Off
+process_jobs_at_task_scheduler = On
 
 ; Remove failed jobs from the database after the following number of days.
 ; Remove this setting to leave failed jobs in the database.
@@ -608,7 +608,9 @@ delete_failed_jobs_after = 180
 ; * * * * * php lib/pkp/tools/scheduler.php run >> /dev/null 2>&1
 ;
 ; See: https://docs.pkp.sfu.ca/admin-guide/en/deploy-scheduled-tasks
-task_runner = On
+;
+; (The "scheduler" service runs our scheduled tasks)
+task_runner = Off
 
 ; How often the built-in scheduled task runner should run at the
 ; end of web request life cycle (value defined in seconds).

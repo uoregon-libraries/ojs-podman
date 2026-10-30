@@ -30,6 +30,12 @@ Requests pass through a few services before reaching OJS:
 
 [tps]: <https://github.com/uoregon-libraries/turnstile-proxy-server>
 
+Two more services run the same image as web, for OJS's background work:
+
+- **worker** runs queued jobs
+- **scheduler** runs OJS's scheduled tasks every minute, so the host doesn't
+  need a cron job for them (and shouldn't have one, or tasks run twice)
+
 Note: if a proxy with a public IP address fronts the stack (e.g., HAProxy),
 list it in `.env`'s `EXTRA_TRUSTED_PROXIES`. Otherwise the whole
 stack reports the wrong IP address.
@@ -90,8 +96,8 @@ OJS's config template, set up for this stack:
   `PUBLIC_SCHEME`, `PUBLIC_HOST`, and `PUBLIC_PORT_SUFFIX`.
 - Settings the stack depends on are already set: `files_dir` is
   `/var/local/ojs-files`, `restful_urls` and `trust_x_forwarded_for` are On,
-  mail goes out over SMTP, and `job_runner` is Off, since the "worker" service
-  runs jobs
+  mail goes out over SMTP, and `job_runner` and `task_runner` are Off, since
+  the "worker" and "scheduler" services do that work
 - Settings that are the same in every environment match our production site,
   e.g., `time_zone` and `enable_beacon`
 
@@ -128,7 +134,7 @@ smtp_port = ${OJS_SMTP_PORT}
   and its log says what's missing.
 
 OJS reads a copy of the config, which is read-only and only made at startup.
-So **after editing the config, restart web and worker**.
+So **after editing the config, restart web, worker, and scheduler**.
 
 #### New site
 

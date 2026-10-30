@@ -11,6 +11,7 @@ What ends up where:
 
 - `web.log`: Apache's access and error logs, which includes PHP / OJS errors
 - `worker.log`: OJS's job runner
+- `scheduler.log`: OJS's scheduled tasks, run every minute
 - `proxy.log`: Caddy's access log, plus Caddy's own messages
 - `tps.log`, `db.log`, `smtpdebug.log`: what you'd expect
 

@@ -23,6 +23,8 @@ services:
   # with caution.
   worker:
     depends_on: *dev-deps
+  scheduler:
+    depends_on: *dev-deps
 
   # Expose "proxy" to the host. In dev, the port should match
   # PUBLIC_PORT_SUFFIX in `.env`.
