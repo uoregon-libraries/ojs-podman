@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Our base config, built into the image (see "Config" in README.md)
 conffile=/usr/local/share/ojs/config.base.inc.php
 ojsconf=/var/www/html/config.inc.php
 

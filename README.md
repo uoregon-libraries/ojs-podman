@@ -14,8 +14,7 @@ image other than "wrapper" stuff like Apache overrides, entrypoint script, etc.
 
 OJS's config is built into the image too: on startup, the entrypoint renders
 our base config into OJS's code directory, filling in values from the
-environment (see [Config](#config)). There's no per-site copy of the config,
-so every site runs the config its image was built with.
+environment (see [Config](#config)).
 
 Requests pass through a few services before reaching OJS:
 
@@ -83,25 +82,25 @@ etc. can be critical to making your project work well across environments.
 
 ### Config
 
-Every site runs our base config (`docker/config/config.base.inc.php`), which
-is built into the image. It's OJS's config template, set up for this stack:
+The OJS base config is modified to have fake-env-var substitution
+(`docker/config/config.base.inc.php`), which is "rendered" on container startup
+so that all configuration can be done in a more cloud-friendly way. Not all
+settings are env vars, we're altering the file as needed. One big downside is
+that upgrades require carefully reviewing the difference between configuration
+files.
 
-- Settings that change per environment (URLs, allowed hosts, database,
-  secrets, mail server, OAI repository ID, session cookie name) are filled in
-  from `.env` (see [Placeholders](#placeholders)). Most of the URL-related
-  ones are built from `PUBLIC_SCHEME`, `PUBLIC_HOST`, and `PUBLIC_PORT_SUFFIX`.
-- Settings the stack depends on are already set: `files_dir` is
+General overview:
+
+- Settings that change per environment (URLs, allowed hosts, database, secrets,
+  mail server, OAI repository ID, session cookie name) are filled in from
+  `.env` (see [Placeholders](#placeholders)). Most of the URL-related ones are
+  built from `PUBLIC_SCHEME`, `PUBLIC_HOST`, and `PUBLIC_PORT_SUFFIX`.
+- Settings the stack requires are already set: `files_dir` is
   `/var/local/ojs-files`, `restful_urls` and `trust_x_forwarded_for` are On,
   mail goes out over SMTP, and `job_runner` and `task_runner` are Off, since
   the "worker" and "scheduler" services do that work
-- Settings that are the same in every environment match our production site,
-  e.g., `time_zone` and `enable_beacon`
-
-So you shouldn't need to edit the config to get a site running.
-
-To change a setting, edit the base config, rebuild (`podman compose build`),
-and run `up -d`. A setting that has to differ between sites needs a
-placeholder instead.
+- Settings that are the same in every environment are hard-coded for UO, e.g.,
+  `time_zone` and `enable_beacon`
 
 #### Placeholders
 
@@ -116,6 +115,8 @@ allowed_hosts = '${OJS_ALLOWED_HOSTS}'
 password = "${MYSQL_PASSWORD}"
 smtp_port = ${OJS_SMTP_PORT}
 ```
+
+Notes (mostly just for devs):
 
 - The vars come from `.env`, but only the ones `ojs.compose.yml` passes to
   the container: the `MYSQL_` vars, and some `PUBLIC_` and `OJS_` ones. To add
@@ -158,14 +159,15 @@ For a site whose database is already set up (e.g., a migration from another
 server):
 
 - Set `OJS_INSTALLED=On`
-- Copy the old config's `app_key`, `salt`, and `api_key_secret` into `.env`.
-  If it doesn't have an app key (older OJS versions don't), generate one (see
+- Copy the old config's `app_key`, `salt`, and `api_key_secret` into `.env`. If
+  it doesn't have an app key (older OJS versions don't), generate one (see
   `.env.example`).
 - Set `OJS_OAI_REPOSITORY_ID` to the old config's `repository_id`, which must
   never change on a live site
-- Copy anything else the old site customized into the base config, or into
-  `.env` (via a placeholder) if it differs between sites. Diff the old config
-  against the base config to find those settings.
+- Convert anything else the old site customized into `.env` variables if it
+  differs between sites. Diff the old config against the base config to find
+  those settings. If there are settings that aren't being rendered in our base
+  configuration, you will need to make a code change.
 
 ### Container logs
 
@@ -283,8 +285,8 @@ Then:
 
 ### Sessions and cookies
 
-Dev is a subdomain of prod, and OJS scopes its session cookie to the whole
-domain, so browsers send prod's session cookie to dev as well:
+For us, dev is a subdomain of prod, and OJS scopes its session cookie to the
+whole domain, so browsers send prod's session cookie to dev as well:
 
 - Dev and prod need different `OJS_SESSION_COOKIE_NAME` values. Otherwise the
   browser sends two session cookies, OJS reads prod's, and logins on dev
@@ -393,10 +395,15 @@ Captured emails can also be browsed at `/smtp-debug-logs/`, e.g.,
 
 To do an upgrade, there are several manual steps to take:
 
-- Config: Look at all differences from the old config template to the new,
-  and apply them to `docker/config/config.base.inc.php` (including the version
-  in its header). Every site picks up the new base config when its image is
-  rebuilt. Make sure the above "Config" section is updated.
+- Config: Look at all differences from the old config template to the new base
+  OJS config file. Alternatively, look at the diff from the old OJS base config
+  to the new.
+  - Using the *new* base config, re-apply all settings that need to have `.env`
+    overrides available
+  - Determine if new settings need to be exposed via `.env`. If so, modify
+    config, modify `.env.example`, and make sure the settings are applied in
+    `ojs.compose.yml`'s `x-ojs-env` section.
+  - Make sure the above "Config" section is still valid.
 - Container / image reset:
   - Check the PHP version with what the new OJS requires. Modify the Docker
     `FROM` line if it's changed.

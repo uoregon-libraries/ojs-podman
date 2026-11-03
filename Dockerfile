@@ -75,8 +75,6 @@ RUN chmod 700 /bin/fixperms.sh
 # Set up our custom entrypoint stuff
 COPY docker/wait_for_database /usr/local/bin/
 COPY --from=render-config /usr/local/bin/render-config /usr/local/bin/
-# Every container renders OJS's config from this at startup, so config changes
-# need a rebuild. There's deliberately no per-site copy to drift out of date.
 COPY docker/config/config.base.inc.php /usr/local/share/ojs/
 COPY docker/entrypoint.sh /entrypoint.sh
 
