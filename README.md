@@ -195,6 +195,43 @@ TPS requires some `.env` vars to run:
 - `JWT_SIGNING_KEY`: signs the TPS cookie, must be long and random in
   production. A bot that figures it out can skip TPS.
 
+### Running under systemd
+
+On servers, the stack runs as a rootless podman *user* unit belonging to the
+podman user. That user needs lingering (`sudo loginctl enable-linger <user>`)
+so the unit starts at boot without anybody logging in.
+
+`systemd/ojs@.service` is a template unit, which keeps host paths out of the
+repo: the instance name is the checkout's path, escaped, and the unit uses that
+as its working directory. `/path/to/ojs/prod` becomes
+`ojs@path-to-ojs-prod.service`, so prod and dev can run side by side from one
+unit file.
+
+Install it as the podman user, from the checkout:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp systemd/ojs@.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now "ojs@$(systemd-escape --path "$PWD").service"
+
+# Day to day (tab completion fills in the instance name)
+systemctl --user status ojs@path-to-ojs-prod
+journalctl --user -u ojs@path-to-ojs-prod
+```
+
+Notes:
+
+- Copy the unit; don't `systemctl link` it. Linked units outside systemd's own
+  directories can run afoul of SELinux, and `disable` deletes the link. After
+  changing the unit in the repo, copy it again and `daemon-reload`.
+- `systemctl --user` needs the user's session bus. `ssh` in as the user, don't
+  `sudo` to switch users. It gets messy.
+- The unit runs `podman compose up` with no service names, so it starts
+  everything `compose.yml` includes. Choose services there, not in the unit.
+- Stopping the unit runs `podman compose down`, which removes the containers
+  (not volumes). Container logs survive since they're in `CONTAINER_LOG_DIR`.
+
 ## Mirror prod to staging ("dev")
 
 *Our "dev" site isn't really dev, but we named it that, so we're stuck with it.*
@@ -246,7 +283,7 @@ Then:
 - Configure dev's compose stack to mount the SQL in
 - Start the DB container, wait for the import to complete, and shut it down
 - Remove the SQL override
-- Start the stack via systemd
+- Start the stack via systemd (see [Running under systemd](#running-under-systemd))
 
 ### Do *not* mirror plugins for upgrading!
 
