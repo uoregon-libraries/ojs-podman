@@ -34,7 +34,6 @@ services:
       - public-files:/var/www/html/public
       - plugins:/var/www/html/plugins
       - cache:/var/www/html/cache
-      - config:/var/local/config
     environment:
       <<: *ojs-env
     logging:
@@ -76,4 +75,3 @@ volumes:
   public-files: {}
   plugins: {}
   cache: {}
-  config: {}

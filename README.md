@@ -12,13 +12,10 @@ The docker image definition (`Dockerfile`) is set up to give us as much
 consistency as possible across environments. No local code is copied into the
 image other than "wrapper" stuff like Apache overrides, entrypoint script, etc.
 
-The "config" volume looks weird, but is done this way in order to keep the
-config totally separated from the code: it starts as an empty directory, and on
-first run gets our base config file added to it. On startup, the
-entrypoint copies that file into OJS's code directory, filling in values from
-the environment (see [Config](#config)). The real file lives in a totally
-isolated volume, making backing up and restoring easier, as well as mounting it
-for editing.
+OJS's config is built into the image too: on startup, the entrypoint renders
+our base config into OJS's code directory, filling in values from the
+environment (see [Config](#config)). There's no per-site copy of the config,
+so every site runs the config its image was built with.
 
 Requests pass through a few services before reaching OJS:
 
@@ -86,9 +83,8 @@ etc. can be critical to making your project work well across environments.
 
 ### Config
 
-The first time you start the "web" container, our base config
-(`docker/config/config.base.inc.php`) is copied into the config volume. It's
-OJS's config template, set up for this stack:
+Every site runs our base config (`docker/config/config.base.inc.php`), which
+is built into the image. It's OJS's config template, set up for this stack:
 
 - Settings that change per environment (URLs, allowed hosts, database,
   secrets, mail server, OAI repository ID, session cookie name) are filled in
@@ -103,10 +99,9 @@ OJS's config template, set up for this stack:
 
 So you shouldn't need to edit the config to get a site running.
 
-Once it's in the volume, the config is yours: rebuilding the image doesn't
-change it, and changes to the base config only reach new sites. To edit it,
-mount the config volume somewhere temporarily, or copy the config out of the
-volume, edit it, and copy it back in.
+To change a setting, edit the base config, rebuild (`podman compose build`),
+and run `up -d`. A setting that has to differ between sites needs a
+placeholder instead.
 
 #### Placeholders
 
@@ -124,7 +119,7 @@ smtp_port = ${OJS_SMTP_PORT}
 
 - The vars come from `.env`, but only the ones `ojs.compose.yml` passes to
   the container: the `MYSQL_` vars, and some `PUBLIC_` and `OJS_` ones. To add
-  one, add it there and to `.env.example`.
+  one, add it there, to `.env.example`, and to the base config.
 - The exception is `HTTPS`, which the entrypoint sets to "on" or "off" from
   `PUBLIC_SCHEME`. It also passes that to OJS, along with the public port,
   since OJS can't tell either one from behind our proxies.
@@ -133,8 +128,9 @@ smtp_port = ${OJS_SMTP_PORT}
 - If the config uses a var that's blank or unset, the container won't start,
   and its log says what's missing.
 
-OJS reads a copy of the config, which is read-only and only made at startup.
-So **after editing the config, restart web, worker, and scheduler**.
+OJS reads a rendered copy of the config, which is read-only and only made at
+startup. So **after editing the base config, rebuild and run `up -d`**, and
+after editing `.env`, run `up -d`.
 
 #### New site
 
@@ -167,11 +163,9 @@ server):
   `.env.example`).
 - Set `OJS_OAI_REPOSITORY_ID` to the old config's `repository_id`, which must
   never change on a live site
-- Copy anything else the old site customized into the new config
-
-You can use the old config instead of the base config, but OJS won't use
-`.env` until you swap the config's values for placeholders. Either way, diff it
-against the base config to catch the settings this stack depends on.
+- Copy anything else the old site customized into the base config, or into
+  `.env` (via a placeholder) if it differs between sites. Diff the old config
+  against the base config to find those settings.
 
 ### Container logs
 
@@ -400,8 +394,8 @@ To do an upgrade, there are several manual steps to take:
 
 - Config: Look at all differences from the old config template to the new,
   and apply them to `docker/config/config.base.inc.php` (including the version
-  in its header). Existing sites' configs don't change on their own. Make sure
-  the above "Config" section is updated.
+  in its header). Every site picks up the new base config when its image is
+  rebuilt. Make sure the above "Config" section is updated.
 - Container / image reset:
   - Check the PHP version with what the new OJS requires. Modify the Docker
     `FROM` line if it's changed.
@@ -427,11 +421,11 @@ like settings in a safe environment.
 To do development, you could clone an OJS fork and mount that into a running
 container at `/var/www/html`. But be aware that will result in a really weird
 local filesystem, and you'll have to do some manual work to get things up and
-running. The config file will need to be copied out of its volume (or recreated
-by OJS), and the public and cache directories, which are currently volumes,
-will be a bit of a mess with how docker and podman manage a volume that's
-mounted in as a subdirectory of another volume (your OJS code would be the
-parent directory).
+running. The config file will need to be rendered from the base config (or
+recreated by OJS), and the public and cache directories, which are currently
+volumes, will be a bit of a mess with how docker and podman manage a volume
+that's mounted in as a subdirectory of another volume (your OJS code would be
+the parent directory).
 
 Ideas:
 

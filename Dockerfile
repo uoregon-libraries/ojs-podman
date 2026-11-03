@@ -48,10 +48,6 @@ VOLUME /var/www/html/public
 VOLUME /var/www/html/plugins
 RUN mkdir -p /var/local/ojs-files /var/www/html/cache /var/www/html/public /var/www/html/plugins
 
-# Create a dir for the config file which we can mount locally for editing
-VOLUME /var/local/config
-RUN mkdir -p /var/local/config
-
 # Set up Apache to allow overrides for our custom .htaccess file
 RUN a2enmod rewrite
 RUN a2enmod headers
@@ -79,6 +75,8 @@ RUN chmod 700 /bin/fixperms.sh
 # Set up our custom entrypoint stuff
 COPY docker/wait_for_database /usr/local/bin/
 COPY --from=render-config /usr/local/bin/render-config /usr/local/bin/
+# Every container renders OJS's config from this at startup, so config changes
+# need a rebuild. There's deliberately no per-site copy to drift out of date.
 COPY docker/config/config.base.inc.php /usr/local/share/ojs/
 COPY docker/entrypoint.sh /entrypoint.sh
 

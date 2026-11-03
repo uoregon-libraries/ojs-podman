@@ -1,6 +1,7 @@
 #!/bin/bash
 
-conffile=/var/local/config/config.inc.php
+# Our base config, built into the image (see "Config" in README.md)
+conffile=/usr/local/share/ojs/config.base.inc.php
 ojsconf=/var/www/html/config.inc.php
 
 init() {
@@ -10,14 +11,6 @@ init() {
   echo "Ensuring proper file/dir permissions..."
   fixperms.sh
   echo "Permissions set"
-
-  # If config.inc.php isn't present in our volume, start from our base config,
-  # which takes its per-environment settings from .env
-  if [ ! -e $conffile ]; then
-    cp /usr/local/share/ojs/config.base.inc.php $conffile
-    chown www-data $conffile
-    chmod 600 $conffile
-  fi
 
   # OJS can't tell the public scheme and port from behind our proxies, so
   # Apache passes these to it (see docker/config/htaccess). The config uses
@@ -36,7 +29,7 @@ init() {
 
   # OJS reads a copy of our config with the "${VAR}" placeholders filled in
   # from the environment. The copy is read-only to OJS, and only made here, so
-  # config changes need a container restart (and .env changes need `up -d`).
+  # base config changes need a rebuild (and .env changes need `up -d`).
   # Even the web installer can't write it, so it shows what it would have
   # written instead.
   echo "Rendering $conffile to $ojsconf"
