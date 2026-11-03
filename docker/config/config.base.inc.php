@@ -53,7 +53,9 @@ base_url = "${PUBLIC_URL}"
 strict = Off
 
 ; Session cookie name
-session_cookie_name = OJSSID
+; (Set by OJS_SESSION_COOKIE_NAME in .env: a site on a subdomain of another
+; OJS site needs its own name)
+session_cookie_name = "${OJS_SESSION_COOKIE_NAME}"
 
 ; Session cookie path; if not specified, defaults to the detected base path
 ; session_cookie_path = /

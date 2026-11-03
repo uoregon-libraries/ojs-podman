@@ -91,9 +91,9 @@ The first time you start the "web" container, our base config
 OJS's config template, set up for this stack:
 
 - Settings that change per environment (URLs, allowed hosts, database,
-  secrets, mail server, OAI repository ID) are filled in from `.env` (see
-  [Placeholders](#placeholders)). Most of the URL-related ones are built from
-  `PUBLIC_SCHEME`, `PUBLIC_HOST`, and `PUBLIC_PORT_SUFFIX`.
+  secrets, mail server, OAI repository ID, session cookie name) are filled in
+  from `.env` (see [Placeholders](#placeholders)). Most of the URL-related
+  ones are built from `PUBLIC_SCHEME`, `PUBLIC_HOST`, and `PUBLIC_PORT_SUFFIX`.
 - Settings the stack depends on are already set: `files_dir` is
   `/var/local/ojs-files`, `restful_urls` and `trust_x_forwarded_for` are On,
   mail goes out over SMTP, and `job_runner` and `task_runner` are Off, since
@@ -272,9 +272,11 @@ database won't start up.)*
 
 # We export the structure separately from the data. I don't remember why, but
 # it was important!
+#
+# The data skips the sessions table (see below)
 export devpath=/path/to/ojs/dev
 /usr/local/bin/podman-mysqldump.sh ojs-prod web -hdb -d ojs > $devpath/exports/db/001-struct.sql
-/usr/local/bin/podman-mysqldump.sh ojs-prod web -hdb -t ojs > $devpath/exports/db/002-data.sql
+/usr/local/bin/podman-mysqldump.sh ojs-prod web -hdb -t --ignore-table=ojs.sessions ojs > $devpath/exports/db/002-data.sql
 ```
 
 Then:
@@ -284,6 +286,24 @@ Then:
 - Start the DB container, wait for the import to complete, and shut it down
 - Remove the SQL override
 - Start the stack via systemd (see [Running under systemd](#running-under-systemd))
+
+### Sessions and cookies
+
+Dev is a subdomain of prod, and OJS scopes its session cookie to the whole
+domain, so browsers send prod's session cookie to dev as well:
+
+- Dev's `.env` must set `OJS_SESSION_COOKIE_NAME` to something other than
+  prod's. Otherwise the browser sends two session cookies, OJS reads prod's,
+  and logins on dev silently fail: the login works, and the next page sends
+  you back to the login form.
+- Prod's sessions mustn't reach dev's database, or a prod session cookie logs
+  you in on dev too. That's why the data dump skips the sessions table. If dev
+  ends up with prod's sessions anyway (e.g., from an older dump), empty the
+  table:
+
+  ```bash
+  podman compose exec db sh -c 'mariadb -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "TRUNCATE sessions"'
+  ```
 
 ### Do *not* mirror plugins for upgrading!
 
