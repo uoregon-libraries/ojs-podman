@@ -5,8 +5,14 @@ services:
       dockerfile: Dockerfile-smtpdebug
     volumes:
       - smtp-debug-logs:/var/local/smtp-debug-logs:rw
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/smtpdebug.log
+    restart: always
 
-  web:
+  # Caddy serves the captured emails at /smtp-debug-logs/
+  proxy:
     volumes:
       - smtp-debug-logs:/var/local/smtp-debug-logs:ro
 

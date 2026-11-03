@@ -1,23 +1,19 @@
 # Example overrides for a dev environment, assuming you pull `ojs.compose.yaml`
-# and `db.compose.yml` into your main compose file. This shows how your web
-# environment might look in development.
+# and `db.compose.yml` into your main compose file.
+#
+# Overrides are only for structural changes: published ports, dependencies,
+# volume redefinitions, etc. Settings that vary per environment (URLs,
+# passwords, TPS keys) go in `.env`; see `.env.example`.
 #
 # For a production setup, you will definitely not use this as-is. Some
 # examples of what might change:
 #
-# - You might use an external database, so you'd have to specify the production
-#   database env vars here and remove the "db" service
-# - You should set HTTPS to "on" (and only allow secure traffic to the
-#   container)
+# - You might use an external database, so you'd remove the "db" service (and
+#   point MYSQL_HOST in `.env` at the real database)
 # - You really don't want a dependency on the smtpdebug service.
 name: ojs
 services:
   web:
-    environment:
-      HTTPS: "off"
-      SERVER_PORT: "8080"
-    ports:
-      - 8080:80
     depends_on: &dev-deps
       - db
       - smtpdebug
@@ -27,6 +23,14 @@ services:
   # with caution.
   worker:
     depends_on: *dev-deps
+  scheduler:
+    depends_on: *dev-deps
+
+  # Expose "proxy" to the host. In dev, the port should match
+  # PUBLIC_PORT_SUFFIX in `.env`.
+  proxy:
+    ports:
+      - 8080:80
 
   db:
     ports:

@@ -102,10 +102,10 @@ remember to re-fix multiple database problems.
     copy the old version's plugins directory*.
 - Start the stack, e.g., `podman compose -f compose.yml -f next.compose.yml up
   -d web`. Don't hit the web endpoint yet!
-- The config file will have been copied from its template in the new OJS
-  version. Modify this file (copy out of the container, edit, copy back in; or
-  edit it directly from the host's `ojs-next_config` volume) based on the diff
-  you created above.
+- The config file will have been copied from our base config (see "Config"
+  in README.md). Modify this file (copy out of the container, edit, copy back
+  in; or edit it directly from the host's `ojs-next_config` volume) based on
+  the diff you created above.
 - Fix ownership and permissions for various files and directories.
   - Run `fixperms.sh` in the web container.
 - Run the OJS CLI upgrade tool, e.g., enter the web container a run `php

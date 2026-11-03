@@ -1,0 +1,2 @@
+FROM docker.io/caddy:2-alpine
+COPY docker/config/Caddyfile /etc/caddy/Caddyfile

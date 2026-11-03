@@ -1,0 +1,44 @@
+# Caddy fronts the whole stack, and every POST has to get past TPS (Turnstile
+# Proxy Server) first. See docker/config/Caddyfile for the routing.
+#
+# "proxy" is the only service that should ever be exposed: exposing "web"
+# directly skips TPS.
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile-caddy
+    environment:
+      EXTRA_TRUSTED_PROXIES: ${EXTRA_TRUSTED_PROXIES:-}
+    depends_on:
+      - web
+      - tps
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/proxy.log
+    restart: always
+
+  # No depends_on here: TPS sends verified requests back to proxy's internal
+  # listener, so that would be a cycle. Neither talks to the other until a
+  # request comes in, by which point both are up.
+  tps:
+    build:
+      context: .
+      dockerfile: Dockerfile-tps
+    environment:
+      PROXY_TARGET: "http://proxy:8081"
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:?copy .env.example to .env and set the TPS secrets}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?copy .env.example to .env and set the TPS secrets}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?copy .env.example to .env and set the TPS secrets}
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+    volumes:
+      - tps-data:/var/local/tps/data
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/tps.log
+    restart: always
+
+volumes:
+  tps-data: {}

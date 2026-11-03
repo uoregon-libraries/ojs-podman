@@ -1,3 +1,28 @@
+# Per-environment settings come from `.env` (see .env.example). Don't set
+# environment vars in an override, or settings drift between files.
+
+# Shared by web and worker via YAML merge keys (`<<: *ojs-env`), so each gets
+# its own copy. A service that sets `environment:` has to start it with `<<:
+# *ojs-env`, or it loses all of these. Don't mess with these unless you fully
+# understand the stack, config replacements, etc.
+x-ojs-env: &ojs-env
+  MYSQL_HOST: ${MYSQL_HOST:?MYSQL_HOST must be set}
+  MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE must be set}
+  MYSQL_USER: ${MYSQL_USER:?MYSQL_USER must be set}
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD must be set}
+  PUBLIC_SCHEME: ${PUBLIC_SCHEME:?PUBLIC_SCHEME must be set}
+  PUBLIC_PORT_SUFFIX: ${PUBLIC_PORT_SUFFIX:-}
+  PUBLIC_URL: ${PUBLIC_URL:-}
+  OJS_INSTALLED: ${OJS_INSTALLED:-}
+  OJS_ALLOWED_HOSTS: ${OJS_ALLOWED_HOSTS:-}
+  OJS_OAI_REPOSITORY_ID: ${OJS_OAI_REPOSITORY_ID:-}
+  OJS_APP_KEY: ${OJS_APP_KEY:-}
+  OJS_SALT: ${OJS_SALT:-}
+  OJS_API_KEY_SECRET: ${OJS_API_KEY_SECRET:-}
+  OJS_SMTP_SERVER: ${OJS_SMTP_SERVER:-}
+  OJS_SMTP_PORT: ${OJS_SMTP_PORT:-}
+  OJS_ENVELOPE_SENDER: ${OJS_ENVELOPE_SENDER:-}
+
 services:
   web:
     build:
@@ -10,13 +35,12 @@ services:
       - cache:/var/www/html/cache
       - config:/var/local/config
     environment:
-      MYSQL_HOST: "db"
-      MYSQL_DATABASE: "ojs"
-      MYSQL_USER: "ojs"
-      MYSQL_PASSWORD: "ojs"
-      HTTPS: ""
-      SERVER_PORT: ""
-    restart: unless-stopped
+      <<: *ojs-env
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/web.log
+    restart: always
 
   worker:
     build:
@@ -24,11 +48,27 @@ services:
       target: worker
     volumes: *vols
     environment:
-      MYSQL_HOST: "db"
-      MYSQL_DATABASE: "ojs"
-      MYSQL_USER: "ojs"
-      MYSQL_PASSWORD: "ojs"
-    restart: unless-stopped
+      <<: *ojs-env
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/worker.log
+    restart: always
+
+  # Runs OJS's scheduled tasks (reminders, usage stats, etc.) every minute, in
+  # place of a host cron job
+  scheduler:
+    build:
+      context: .
+      target: scheduler
+    volumes: *vols
+    environment:
+      <<: *ojs-env
+    logging:
+      driver: k8s-file
+      options:
+        path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/scheduler.log
+    restart: always
 
 volumes:
   private-files: {}
