@@ -11,6 +11,16 @@ services:
         path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/smtpdebug.log
     restart: always
 
+  web:
+    depends_on:
+      - smtpdebug
+  worker:
+    depends_on:
+      - smtpdebug
+  scheduler:
+    depends_on:
+      - smtpdebug
+
   # Caddy serves the captured emails at /smtp-debug-logs/
   proxy:
     volumes:

@@ -1,40 +1,23 @@
-# Example overrides for a dev environment, assuming you pull `ojs.compose.yaml`
-# and `db.compose.yml` into your main compose file.
+# Example overrides for a basic setup.
 #
-# Overrides are only for structural changes: published ports, dependencies,
-# volume redefinitions, etc. Settings that vary per environment (URLs,
-# passwords, TPS keys) go in `.env`; see `.env.example`.
-#
-# For a production setup, you will definitely not use this as-is. Some
-# examples of what might change:
-#
-# - You might use an external database, so you'd remove the "db" service (and
-#   point MYSQL_HOST in `.env` at the real database)
-# - You really don't want a dependency on the smtpdebug service.
-name: ojs
+# Overrides are only for structural changes: basically just published ports and
+# volume redefinitions. The stack is set up by choosing which files to include
+# in compose.yml, and settings that vary per environment (URLs, passwords, TPS
+# keys) go in `.env`; see `compose-example.yml` and `.env.example`.
 services:
-  web:
-    depends_on: &dev-deps
-      - db
-      - smtpdebug
-
-  # Technically for dev you can't actually use a worker unless you disable the
-  # "sandbox" setting. Which is generally inadvisable for dev. So... proceed
-  # with caution.
-  worker:
-    depends_on: *dev-deps
-  scheduler:
-    depends_on: *dev-deps
-
   # Expose "proxy" to the host. In dev, the port should match
   # PUBLIC_PORT_SUFFIX in `.env`.
   proxy:
     ports:
       - 8080:80
 
-  db:
-    ports:
-      - 3306:3306
+  # Uncomment below to mount a DB dump for importing and/or expose the db to
+  # the host. Don't use these in prod long-term!
+  #db:
+  #  ports:
+  #    - "127.0.0.1:3306:3306"
+  #  volumes:
+  #    - ./exports/db:/docker-entrypoint-initdb.d
 
 # Volume redefinition example for keeping things local in a dev environment.
 #
