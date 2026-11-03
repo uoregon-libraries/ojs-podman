@@ -286,10 +286,11 @@ Then:
 Dev is a subdomain of prod, and OJS scopes its session cookie to the whole
 domain, so browsers send prod's session cookie to dev as well:
 
-- Dev's `.env` must set `OJS_SESSION_COOKIE_NAME` to something other than
-  prod's. Otherwise the browser sends two session cookies, OJS reads prod's,
-  and logins on dev silently fail: the login works, and the next page sends
-  you back to the login form.
+- Dev and prod need different `OJS_SESSION_COOKIE_NAME` values. Otherwise the
+  browser sends two session cookies, OJS reads prod's, and logins on dev
+  silently fail: the login works, and the next page sends you back to the
+  login form. It defaults to the compose project name, which already differs,
+  and prod sets it to "OJSSID".
 - Prod's sessions mustn't reach dev's database, or a prod session cookie logs
   you in on dev too. That's why the data dump skips the sessions table. If dev
   ends up with prod's sessions anyway (e.g., from an older dump), empty the
