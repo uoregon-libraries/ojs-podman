@@ -59,8 +59,10 @@ remember to re-fix multiple database problems.
     plugins, things break badly. OJS mixes core *and external* plugins right in
     the app's source directory, so there's no easy way to mirror only your
     external plugins.
-- Get your production config file copied and modify it as needed. e.g., you
-  might need to change things like `allowed_hosts`.
+- Get your production config file and modify it as needed. e.g., you might
+  need to change things like `allowed_hosts`. Every container renders its
+  config from `/usr/local/share/ojs/config.base.inc.php`, so mount your
+  production config over that path in the "current" override.
 - Fix ownership and permissions for various files and directories.
   - Run `fixperms.sh` in the web container.
 - Test that the setup is running and your local server looks like production.
@@ -91,6 +93,9 @@ remember to re-fix multiple database problems.
 
 #### Prepare the new stack
 
+- Apply the diff you created above to our base config (see "Config" in
+  README.md), or to `.env` for settings that differ between sites. The config
+  is built into the image, so do this before building the "next" stack.
 - Create the services without starting them so that the volumes get
   initialized. e.g., `podman compose -f compose.yml -f next.compose.yml up
   --no-start`.
@@ -102,10 +107,6 @@ remember to re-fix multiple database problems.
     copy the old version's plugins directory*.
 - Start the stack, e.g., `podman compose -f compose.yml -f next.compose.yml up
   -d web`. Don't hit the web endpoint yet!
-- The config file will have been copied from our base config (see "Config"
-  in README.md). Modify this file (copy out of the container, edit, copy back
-  in; or edit it directly from the host's `ojs-next_config` volume) based on
-  the diff you created above.
 - Fix ownership and permissions for various files and directories.
   - Run `fixperms.sh` in the web container.
 - Run the OJS CLI upgrade tool, e.g., enter the web container a run `php

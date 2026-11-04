@@ -1,9 +1,11 @@
-# This is a basic example of simply combining the OJS and DB service
+# This is a basic example of combining OJS, DB, proxy, and smtpdebug services'
 # definitions. Copy this to `compose.yml`, copy `.env.example` to `.env` and
-# edit it, set up an override, and go!
+# edit it, copy `compose.override-example.yml` to `compose.override.yml`, edit
+# it, and go.
 #
-# `compose.override-example.yml` shows how you might expose ports, add
-# dependencies, etc.
+# Your compose.yml is meant to define the services you use, the override
+# configures how podman sets up and exposes those services, and `.env`
+# configures the running containers' applications.
 include:
   - ojs.compose.yml
   - db.compose.yml

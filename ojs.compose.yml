@@ -16,6 +16,7 @@ x-ojs-env: &ojs-env
   OJS_INSTALLED: ${OJS_INSTALLED:-}
   OJS_ALLOWED_HOSTS: ${OJS_ALLOWED_HOSTS:-}
   OJS_OAI_REPOSITORY_ID: ${OJS_OAI_REPOSITORY_ID:-}
+  OJS_SESSION_COOKIE_NAME: ${OJS_SESSION_COOKIE_NAME:-}
   OJS_APP_KEY: ${OJS_APP_KEY:-}
   OJS_SALT: ${OJS_SALT:-}
   OJS_API_KEY_SECRET: ${OJS_API_KEY_SECRET:-}
@@ -33,7 +34,6 @@ services:
       - public-files:/var/www/html/public
       - plugins:/var/www/html/plugins
       - cache:/var/www/html/cache
-      - config:/var/local/config
     environment:
       <<: *ojs-env
     logging:
@@ -75,4 +75,3 @@ volumes:
   public-files: {}
   plugins: {}
   cache: {}
-  config: {}

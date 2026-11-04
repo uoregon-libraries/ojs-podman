@@ -48,10 +48,6 @@ VOLUME /var/www/html/public
 VOLUME /var/www/html/plugins
 RUN mkdir -p /var/local/ojs-files /var/www/html/cache /var/www/html/public /var/www/html/plugins
 
-# Create a dir for the config file which we can mount locally for editing
-VOLUME /var/local/config
-RUN mkdir -p /var/local/config
-
 # Set up Apache to allow overrides for our custom .htaccess file
 RUN a2enmod rewrite
 RUN a2enmod headers

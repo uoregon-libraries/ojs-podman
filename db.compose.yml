@@ -17,5 +17,15 @@ services:
       options:
         path: ${CONTAINER_LOG_DIR:?CONTAINER_LOG_DIR must be set}/db.log
 
+  web:
+    depends_on:
+      - db
+  worker:
+    depends_on:
+      - db
+  scheduler:
+    depends_on:
+      - db
+
 volumes:
   db: {}

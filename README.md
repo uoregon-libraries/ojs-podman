@@ -12,13 +12,9 @@ The docker image definition (`Dockerfile`) is set up to give us as much
 consistency as possible across environments. No local code is copied into the
 image other than "wrapper" stuff like Apache overrides, entrypoint script, etc.
 
-The "config" volume looks weird, but is done this way in order to keep the
-config totally separated from the code: it starts as an empty directory, and on
-first run gets our base config file added to it. On startup, the
-entrypoint copies that file into OJS's code directory, filling in values from
-the environment (see [Config](#config)). The real file lives in a totally
-isolated volume, making backing up and restoring easier, as well as mounting it
-for editing.
+OJS's config is built into the image too: on startup, the entrypoint renders
+our base config into OJS's code directory, filling in values from the
+environment (see [Config](#config)).
 
 Requests pass through a few services before reaching OJS:
 
@@ -86,27 +82,25 @@ etc. can be critical to making your project work well across environments.
 
 ### Config
 
-The first time you start the "web" container, our base config
-(`docker/config/config.base.inc.php`) is copied into the config volume. It's
-OJS's config template, set up for this stack:
+The OJS base config is modified to have fake-env-var substitution
+(`docker/config/config.base.inc.php`), which is "rendered" on container startup
+so that all configuration can be done in a more cloud-friendly way. Not all
+settings are env vars, we're altering the file as needed. One big downside is
+that upgrades require carefully reviewing the difference between configuration
+files.
 
-- Settings that change per environment (URLs, allowed hosts, database,
-  secrets, mail server, OAI repository ID) are filled in from `.env` (see
-  [Placeholders](#placeholders)). Most of the URL-related ones are built from
-  `PUBLIC_SCHEME`, `PUBLIC_HOST`, and `PUBLIC_PORT_SUFFIX`.
-- Settings the stack depends on are already set: `files_dir` is
+General overview:
+
+- Settings that change per environment (URLs, allowed hosts, database, secrets,
+  mail server, OAI repository ID, session cookie name) are filled in from
+  `.env` (see [Placeholders](#placeholders)). Most of the URL-related ones are
+  built from `PUBLIC_SCHEME`, `PUBLIC_HOST`, and `PUBLIC_PORT_SUFFIX`.
+- Settings the stack requires are already set: `files_dir` is
   `/var/local/ojs-files`, `restful_urls` and `trust_x_forwarded_for` are On,
   mail goes out over SMTP, and `job_runner` and `task_runner` are Off, since
   the "worker" and "scheduler" services do that work
-- Settings that are the same in every environment match our production site,
-  e.g., `time_zone` and `enable_beacon`
-
-So you shouldn't need to edit the config to get a site running.
-
-Once it's in the volume, the config is yours: rebuilding the image doesn't
-change it, and changes to the base config only reach new sites. To edit it,
-mount the config volume somewhere temporarily, or copy the config out of the
-volume, edit it, and copy it back in.
+- Settings that are the same in every environment are hard-coded for UO, e.g.,
+  `time_zone` and `enable_beacon`
 
 #### Placeholders
 
@@ -122,9 +116,11 @@ password = "${MYSQL_PASSWORD}"
 smtp_port = ${OJS_SMTP_PORT}
 ```
 
+Notes (mostly just for devs):
+
 - The vars come from `.env`, but only the ones `ojs.compose.yml` passes to
   the container: the `MYSQL_` vars, and some `PUBLIC_` and `OJS_` ones. To add
-  one, add it there and to `.env.example`.
+  one, add it there, to `.env.example`, and to the base config.
 - The exception is `HTTPS`, which the entrypoint sets to "on" or "off" from
   `PUBLIC_SCHEME`. It also passes that to OJS, along with the public port,
   since OJS can't tell either one from behind our proxies.
@@ -133,8 +129,9 @@ smtp_port = ${OJS_SMTP_PORT}
 - If the config uses a var that's blank or unset, the container won't start,
   and its log says what's missing.
 
-OJS reads a copy of the config, which is read-only and only made at startup.
-So **after editing the config, restart web, worker, and scheduler**.
+OJS reads a rendered copy of the config, which is read-only and only made at
+startup. So **after editing the base config, rebuild and run `up -d`**, and
+after editing `.env`, run `up -d`.
 
 #### New site
 
@@ -162,16 +159,15 @@ For a site whose database is already set up (e.g., a migration from another
 server):
 
 - Set `OJS_INSTALLED=On`
-- Copy the old config's `app_key`, `salt`, and `api_key_secret` into `.env`.
-  If it doesn't have an app key (older OJS versions don't), generate one (see
+- Copy the old config's `app_key`, `salt`, and `api_key_secret` into `.env`. If
+  it doesn't have an app key (older OJS versions don't), generate one (see
   `.env.example`).
 - Set `OJS_OAI_REPOSITORY_ID` to the old config's `repository_id`, which must
   never change on a live site
-- Copy anything else the old site customized into the new config
-
-You can use the old config instead of the base config, but OJS won't use
-`.env` until you swap the config's values for placeholders. Either way, diff it
-against the base config to catch the settings this stack depends on.
+- Convert anything else the old site customized into `.env` variables if it
+  differs between sites. Diff the old config against the base config to find
+  those settings. If there are settings that aren't being rendered in our base
+  configuration, you will need to make a code change.
 
 ### Container logs
 
@@ -194,6 +190,43 @@ TPS requires some `.env` vars to run:
   widget in Cloudflare's dashboard. For dev, Cloudflare's test keys work fine.
 - `JWT_SIGNING_KEY`: signs the TPS cookie, must be long and random in
   production. A bot that figures it out can skip TPS.
+
+### Running under systemd
+
+On servers, the stack runs as a rootless podman *user* unit belonging to the
+podman user. That user needs lingering (`sudo loginctl enable-linger <user>`)
+so the unit starts at boot without anybody logging in.
+
+`systemd/ojs@.service` is a template unit, which keeps host paths out of the
+repo: the instance name is the checkout's path, escaped, and the unit uses that
+as its working directory. `/path/to/ojs/prod` becomes
+`ojs@path-to-ojs-prod.service`, so prod and dev can run side by side from one
+unit file.
+
+Install it as the podman user, from the checkout:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp systemd/ojs@.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now "ojs@$(systemd-escape --path "$PWD").service"
+
+# Day to day (tab completion fills in the instance name)
+systemctl --user status ojs@path-to-ojs-prod
+journalctl --user -u ojs@path-to-ojs-prod
+```
+
+Notes:
+
+- Copy the unit; don't `systemctl link` it. Linked units outside systemd's own
+  directories can run afoul of SELinux, and `disable` deletes the link. After
+  changing the unit in the repo, copy it again and `daemon-reload`.
+- `systemctl --user` needs the user's session bus. `ssh` in as the user, don't
+  `sudo` to switch users. It gets messy.
+- The unit runs `podman compose up` with no service names, so it starts
+  everything `compose.yml` includes. Choose services there, not in the unit.
+- Stopping the unit runs `podman compose down`, which removes the containers
+  (not volumes). Container logs survive since they're in `CONTAINER_LOG_DIR`.
 
 ## Mirror prod to staging ("dev")
 
@@ -235,9 +268,11 @@ database won't start up.)*
 
 # We export the structure separately from the data. I don't remember why, but
 # it was important!
+#
+# The data skips the sessions table (see below)
 export devpath=/path/to/ojs/dev
 /usr/local/bin/podman-mysqldump.sh ojs-prod web -hdb -d ojs > $devpath/exports/db/001-struct.sql
-/usr/local/bin/podman-mysqldump.sh ojs-prod web -hdb -t ojs > $devpath/exports/db/002-data.sql
+/usr/local/bin/podman-mysqldump.sh ojs-prod web -hdb -t --ignore-table=ojs.sessions ojs > $devpath/exports/db/002-data.sql
 ```
 
 Then:
@@ -246,7 +281,26 @@ Then:
 - Configure dev's compose stack to mount the SQL in
 - Start the DB container, wait for the import to complete, and shut it down
 - Remove the SQL override
-- Start the stack via systemd
+- Start the stack via systemd (see [Running under systemd](#running-under-systemd))
+
+### Sessions and cookies
+
+For us, dev is a subdomain of prod, and OJS scopes its session cookie to the
+whole domain, so browsers send prod's session cookie to dev as well:
+
+- Dev and prod need different `OJS_SESSION_COOKIE_NAME` values. Otherwise the
+  browser sends two session cookies, OJS reads prod's, and logins on dev
+  silently fail: the login works, and the next page sends you back to the
+  login form. It defaults to the compose project name, which already differs,
+  and prod sets it to "OJSSID".
+- Prod's sessions mustn't reach dev's database, or a prod session cookie logs
+  you in on dev too. That's why the data dump skips the sessions table. If dev
+  ends up with prod's sessions anyway (e.g., from an older dump), empty the
+  table:
+
+  ```bash
+  podman compose exec db sh -c 'mariadb -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "TRUNCATE sessions"'
+  ```
 
 ### Do *not* mirror plugins for upgrading!
 
@@ -341,10 +395,15 @@ Captured emails can also be browsed at `/smtp-debug-logs/`, e.g.,
 
 To do an upgrade, there are several manual steps to take:
 
-- Config: Look at all differences from the old config template to the new,
-  and apply them to `docker/config/config.base.inc.php` (including the version
-  in its header). Existing sites' configs don't change on their own. Make sure
-  the above "Config" section is updated.
+- Config: Look at all differences from the old config template to the new base
+  OJS config file. Alternatively, look at the diff from the old OJS base config
+  to the new.
+  - Using the *new* base config, re-apply all settings that need to have `.env`
+    overrides available
+  - Determine if new settings need to be exposed via `.env`. If so, modify
+    config, modify `.env.example`, and make sure the settings are applied in
+    `ojs.compose.yml`'s `x-ojs-env` section.
+  - Make sure the above "Config" section is still valid.
 - Container / image reset:
   - Check the PHP version with what the new OJS requires. Modify the Docker
     `FROM` line if it's changed.
@@ -370,11 +429,11 @@ like settings in a safe environment.
 To do development, you could clone an OJS fork and mount that into a running
 container at `/var/www/html`. But be aware that will result in a really weird
 local filesystem, and you'll have to do some manual work to get things up and
-running. The config file will need to be copied out of its volume (or recreated
-by OJS), and the public and cache directories, which are currently volumes,
-will be a bit of a mess with how docker and podman manage a volume that's
-mounted in as a subdirectory of another volume (your OJS code would be the
-parent directory).
+running. The config file will need to be rendered from the base config (or
+recreated by OJS), and the public and cache directories, which are currently
+volumes, will be a bit of a mess with how docker and podman manage a volume
+that's mounted in as a subdirectory of another volume (your OJS code would be
+the parent directory).
 
 Ideas:
 

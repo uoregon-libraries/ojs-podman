@@ -13,9 +13,11 @@ ssh $dev@$pod_host sudo -u $podman_user /usr/local/bin/podman-mysqldump.sh $pod_
     > ./exports/db/001-struct.sql
 echo "Done (structure)."
 
+# Prod's sessions are skipped, or prod's session cookies would log people in
+# wherever this dump is imported. See "Sessions and cookies" in README.md.
 echo "Mirroring data..."
 ssh $dev@$pod_host sudo -u $podman_user /usr/local/bin/podman-mysqldump.sh $pod_subdir $service \
-    -hdb -t ojs \
+    -hdb -t --ignore-table=ojs.sessions ojs \
     > ./exports/db/002-data.sql
 echo "Done (core)."
 

@@ -21,8 +21,9 @@
 ;
 ; ojs-podman base config: OJS 3.5.0-3's config.TEMPLATE.inc.php, set up
 ; for this stack, with our production site's choices for settings that
-; don't change per environment (time zone, beacon, etc.). The first time
-; the container starts, it's copied into the config volume.
+; don't change per environment (time zone, beacon, etc.). It's built into
+; the image, and every container renders its config from it, so changes
+; here need a rebuild.
 ;
 ; Each "${VAR}" is filled in from .env on startup (see "Config" in
 ; README.md), so settings that change per environment are set in .env, not
@@ -53,7 +54,7 @@ base_url = "${PUBLIC_URL}"
 strict = Off
 
 ; Session cookie name
-session_cookie_name = OJSSID
+session_cookie_name = "${OJS_SESSION_COOKIE_NAME}"
 
 ; Session cookie path; if not specified, defaults to the detected base path
 ; session_cookie_path = /
