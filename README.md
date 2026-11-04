@@ -395,11 +395,19 @@ Captured emails can also be browsed at `/smtp-debug-logs/`, e.g.,
 
 To do an upgrade, there are several manual steps to take:
 
-- Config: Look at all differences from the old config template to the new base
-  OJS config file. Alternatively, look at the diff from the old OJS base config
-  to the new.
-  - Using the *new* base config, re-apply all settings that need to have `.env`
-    overrides available
+- Config: Look at what changed between the old and new OJS config templates,
+  and carry those changes into `docker/config/config.base.inc.php`.
+  `docker/config-diff.sh` handles both (it pulls the templates from PKP's
+  GitHub tags):
+  ```bash
+  # Show what upstream changed
+  ./docker/config-diff.sh 3.5.0-3 3.5.0-6
+
+  # Merge upstream's changes into our base config, then review with "git diff"
+  ./docker/config-diff.sh --merge 3.5.0-3 3.5.0-6
+  ```
+  - If the merge reports conflicts, resolve the markers it leaves, keeping our
+    `${...}` placeholders where settings need `.env` overrides
   - Determine if new settings need to be exposed via `.env`. If so, modify
     config, modify `.env.example`, and make sure the settings are applied in
     `ojs.compose.yml`'s `x-ojs-env` section.
