@@ -1,2 +1,6 @@
 FROM docker.io/caddy:2-alpine
 COPY docker/config/Caddyfile /etc/caddy/Caddyfile
+
+# The Caddyfile trusts Caddy's own address (see its comments), which podman
+# only assigns at startup
+CMD CADDY_OWN_ADDRS=$(hostname -i) exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile

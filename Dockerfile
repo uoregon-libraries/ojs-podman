@@ -57,6 +57,11 @@ RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 COPY docker/config/public.conf /etc/apache2/conf-available/public.conf
 RUN a2enconf public.conf
 
+# Log the client IP Caddy sends rather than Caddy's own. Apache's comments warn
+# that clients can fake this header, but Caddy always replaces it, and nothing
+# else can reach Apache.
+RUN sed -i 's/%h /%{X-Forwarded-For}i /' /etc/apache2/apache2.conf
+
 # Give PHP some sane config settings
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 RUN sed -i 's/upload_max_filesize\s*=.*$/upload_max_filesize = 1024M/' "$PHP_INI_DIR/php.ini"

@@ -32,9 +32,11 @@ Two more services run the same image as web, for OJS's background work:
 - **scheduler** runs OJS's scheduled tasks every minute, so the host doesn't
   need a cron job for them (and shouldn't have one, or tasks run twice)
 
-Note: if a proxy with a public IP address fronts the stack (e.g., HAProxy),
-list it in `.env`'s `EXTRA_TRUSTED_PROXIES`. Otherwise the whole
-stack reports the wrong IP address.
+Note: rootless podman hides who connects to a published port, so Caddy trusts
+every request's X-Forwarded-For header. Make sure only your front proxy can
+reach that port, or clients can claim any IP address. If Caddy *can* see the
+front proxy's address (e.g., under rootful podman), list it in `.env`'s
+`EXTRA_TRUSTED_PROXIES`.
 
 ## Setup
 
