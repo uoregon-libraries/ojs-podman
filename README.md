@@ -423,7 +423,12 @@ To do an upgrade, there are several manual steps to take:
     clean and updated build.
   - Delete all volumes. Remember this is for *dev upgrades*, **not**
     production!
+- Check the entire [PKP OJS upgrade guide][ojs-upgrade], and note that *even
+  build upgrades* often require database upgrades, plugin resetting and
+  reinstalling, etc.
 - Do the web install (see [New site](#new-site)) and you should be set.
+
+[ojs-upgrade]: <https://docs.pkp.sfu.ca/dev/upgrade-guide/en/>
 
 **Note**: this process is for upgrading OJS *in this repo*. Production updates
 might be similar, *but we do not know. They may be completely different in ways
