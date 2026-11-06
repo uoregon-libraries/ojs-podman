@@ -426,6 +426,24 @@ To do an upgrade, there are several manual steps to take:
 - Check the entire [PKP OJS upgrade guide][ojs-upgrade], and note that *even
   build upgrades* often require database upgrades, plugin resetting and
   reinstalling, etc.
+  - *Always* run the pkp upgrade tool
+  - *Always* replace core plugins
+    - Use `docker/plugin-diff.sh` to get a list of plugins that aren't core.
+      rsync those somewhere. Do the rsync via `podman unshare` to ensure
+      permissions are persisted properly. e.g., with the list of plugins in a
+      file named "foo":
+      ```
+        src=/path/to/prod/volumes/plugins
+        dst=/path/to/backups/plugins
+        for plugin in $(cat foo); do
+          echo "podman unshare mkdir -p $dst/$plugin && podman unshare rsync -av $src/$plugin/ $dst/$plugin/"
+        done
+      ```
+    - Destroy plugins, e.g. via `podman unshare rm -rf /path/to/volumes/plugins/*`
+    - Destroy the *volume definition*, otherwise podman doesn't recreate the
+      files, e.g., `podman volume rm journals_plugins`
+    - Recreate just by standing up `worker` so the site isn't available
+    - rsync plugins back into the volume, similar to the backup procedure
 - Do the web install (see [New site](#new-site)) and you should be set.
 
 [ojs-upgrade]: <https://docs.pkp.sfu.ca/dev/upgrade-guide/en/>
