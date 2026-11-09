@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # Compares the plugins (as "category/name") in plugin sources. Each source is
-# either a plugins directory (e.g., a podman volume's _data dir) or
-# "image:<ref>" to use the pristine plugins baked into an OJS image.
+# either a plugins directory (e.g., a backup of the plugins volume made with
+# volsync.sh) or "image:<ref>" to use the pristine plugins baked into an OJS
+# image.
 #
 # With one or two sources, lists the plugins that only one of them has.
 # Comparing a volume against the image it runs on shows exactly what came from
