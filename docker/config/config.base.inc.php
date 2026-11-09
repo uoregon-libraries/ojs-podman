@@ -59,9 +59,10 @@ session_cookie_name = "${OJS_SESSION_COOKIE_NAME}"
 ; Session cookie path; if not specified, defaults to the detected base path
 ; session_cookie_path = /
 
-; Number of days to save login cookie for if user selects to remember
-; (set to 0 to force expiration at end of current session)
-session_lifetime = 30
+; Number of days a session remains valid while idle. Fractional days are allowed
+; (e.g. 0.5 = 12 hours, 0.0833 ~ 2 hours); the value is clamped to a minimum of 1 minute.
+; To expire sessions when the browser closes, use session_expire_on_close in [security]
+session_lifetime = 7
 
 ; SameSite configuration for the cookie, see possible values and explanations
 ; at https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite
@@ -283,6 +284,17 @@ session_check_ip = Off
 ; migration of old password hashes.
 encryption = sha1
 
+; When set to On, the session cookie expires when the browser is closed.
+; The server-side session data still persists for session_lifetime days
+; and is cleaned up by garbage collection.
+session_expire_on_close = Off
+
+; Number of days the "remember me" persistent-login cookie remains valid. Fractional
+; days are allowed. Only applies when the user ticks "remember me" at login.
+; To extend login beyond the idle session, set this greater than session_lifetime in
+; [general]; it is an absolute window measured from login (not refreshed on activity).
+remember_me_lifetime = 30
+
 ; The unique salt to use for generating password reset hashes
 salt = "${OJS_SALT}"
 
@@ -303,6 +315,10 @@ allowed_html = "a[href|target|title],em,strong,cite,code,ul,ol,li[class],dl,dt,d
 allowed_title_html = "b,i,u,sup,sub"
 
 ;N.b.: The implicit_auth parameter has been removed in favor of plugin implementations such as shibboleth
+
+; The URL to use to fetch the plugin gallery plugin list
+; BEWARE: You should not extend the gallery with custom plugin gallery listing that collide with the official ones!
+;plugin_gallery_urls = '["https://pkp.sfu.ca/ojs/xml/plugins.xml"]'
 
 
 ;;;;;;;;;;;;;;;;;;
@@ -581,6 +597,10 @@ job_runner_max_execution_time = 30
 ; When setting a fixed value in megabytes, this should be less than the
 ; memory_limit the server has configured for PHP.
 job_runner_max_memory = 80
+
+; Prevent multiple web requests from running JobRunner simultaneously.
+; Recommended On for shared/weak hosting. Dedicated servers can disable for throughput.
+job_runner_cross_request_lock = On
 
 ; Controls whether queued jobs should be processed by the task scheduler.
 ; This setting has no effect when the job_runner and the [schedule].task_runner are enabled,

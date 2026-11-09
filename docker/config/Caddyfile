@@ -1,10 +1,12 @@
 {
-	# The public listener works out the real client IP. Private ranges (the
-	# container network, a proxy on the same LAN) are always trusted to set
-	# X-Forwarded-For; EXTRA_TRUSTED_PROXIES adds more (space-separated IPs or
-	# CIDR ranges), e.g., a front proxy with a public address.
+	# The public listener works out the real client IP. Rootless podman makes a
+	# front proxy's connections come from Caddy's own address, so that's what's
+	# trusted to set X-Forwarded-For, plus EXTRA_TRUSTED_PROXIES.
+	#
+	# Don't trust whole private ranges: strict mode skips trusted addresses in
+	# X-Forwarded-For, so it would skip VPN users' addresses too.
 	servers :80 {
-		trusted_proxies static private_ranges {$EXTRA_TRUSTED_PROXIES}
+		trusted_proxies static {$CADDY_OWN_ADDRS} {$EXTRA_TRUSTED_PROXIES}
 		trusted_proxies_strict
 	}
 
@@ -12,9 +14,10 @@
 	# X-Forwarded-For the public listener set, plus its own hop. Non-strict
 	# mode takes the leftmost entry, so OJS sees the same client IP on a POST
 	# (login, registration, and their captcha checks) as on a GET, even when
-	# the client is on a private network.
+	# the client is on a private network. Only TPS can reach this port, so any
+	# address is trusted.
 	servers :8081 {
-		trusted_proxies static private_ranges
+		trusted_proxies static 0.0.0.0/0 ::/0
 	}
 }
 

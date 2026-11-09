@@ -31,7 +31,7 @@ RUN docker-php-ext-install mbstring exif pcntl bcmath gd zip intl ftp gettext
 
 # Grab the production package from the website before any custom stuff since
 # this is one of the least likely steps to change
-ARG OJS_VERSION="3.5.0-3"
+ARG OJS_VERSION="3.5.0-6"
 USER www-data
 WORKDIR /var/www/html
 RUN curl -L https://pkp.sfu.ca/ojs/download/ojs-$OJS_VERSION.tar.gz | tar -xz --strip-components=1
@@ -56,6 +56,11 @@ RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 # Don't allow anything in /var/www/html/public to be treated as executable
 COPY docker/config/public.conf /etc/apache2/conf-available/public.conf
 RUN a2enconf public.conf
+
+# Log the client IP Caddy sends rather than Caddy's own. Apache's comments warn
+# that clients can fake this header, but Caddy always replaces it, and nothing
+# else can reach Apache.
+RUN sed -i 's/%h /%{X-Forwarded-For}i /' /etc/apache2/apache2.conf
 
 # Give PHP some sane config settings
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"

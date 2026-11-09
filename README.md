@@ -32,9 +32,11 @@ Two more services run the same image as web, for OJS's background work:
 - **scheduler** runs OJS's scheduled tasks every minute, so the host doesn't
   need a cron job for them (and shouldn't have one, or tasks run twice)
 
-Note: if a proxy with a public IP address fronts the stack (e.g., HAProxy),
-list it in `.env`'s `EXTRA_TRUSTED_PROXIES`. Otherwise the whole
-stack reports the wrong IP address.
+Note: rootless podman hides who connects to a published port, so Caddy trusts
+every request's X-Forwarded-For header. Make sure only your front proxy can
+reach that port, or clients can claim any IP address. If Caddy *can* see the
+front proxy's address (e.g., under rootful podman), list it in `.env`'s
+`EXTRA_TRUSTED_PROXIES`.
 
 ## Setup
 
@@ -228,6 +230,31 @@ Notes:
 - Stopping the unit runs `podman compose down`, which removes the containers
   (not volumes). Container logs survive since they're in `CONTAINER_LOG_DIR`.
 
+### Volume files
+
+Don't count on a volume's files being in podman's volume directory
+(`~/.local/share/containers/storage/volumes`), or wherever `podman volume
+inspect` says its `Mountpoint` is. A volume with `driver_opts` (a bind to a
+`device` directory, as in `compose.override-example.yml`) keeps its files in
+the device directory. Its mountpoint only shows them inside `podman unshare`,
+and only while a container is using the volume. Anywhere else it's an empty
+directory: reading it finds nothing, and files written there never reach a
+container.
+
+So when a task needs a volume's files:
+
+- Copy them with `docker/volsync.sh`, which runs rsync (inside `podman
+  unshare`) on the directory that really holds a volume's files. Name a volume
+  as `vol:<name>`:
+  ```bash
+  ./docker/volsync.sh vol:ojs-prod_plugins /path/to/backup/plugins
+  ```
+- To start a volume over, empty it from a container that mounts it (e.g., the
+  dev db volume in [Mirror prod to staging](#mirror-prod-to-staging-dev)).
+  Don't remove and recreate it: `podman volume rm` doesn't delete a device
+  directory's files, so the "new" volume still has them, and podman won't copy
+  an image's files into a volume that isn't empty.
+
 ## Mirror prod to staging ("dev")
 
 *Our "dev" site isn't really dev, but we named it that, so we're stuck with it.*
@@ -236,22 +263,14 @@ Mirroring data from production to dev is easiest done on the container host via
 rsync and SQL exports.
 
 ```bash
-# (ssh into the server as the podman user)
+# (ssh into the server as the podman user, and cd to the dev checkout)
 
-# Get into podman's volume dir
-cd ~/.local/share/containers/storage/volumes/
+# Mirror raw files (see "Volume files" above for why this uses volsync.sh)
+./docker/volsync.sh -vP --delete --exclude=usageStats/archive/ --exclude=temp/ vol:ojs-prod_private-files vol:ojs-dev_private-files
+./docker/volsync.sh -vP --delete vol:ojs-prod_public-files vol:ojs-dev_public-files
 
-# Make sure all commands are run inside podman's rootless user namespace -
-# without this, you're going to get permissions problems running the rsync
-# and/or starting up dev
-podman unshare
-
-# Mirror raw files
-rsync -avzP --exclude="usageStats/archive/" --exclude="temp/" --delete ojs-prod_private-files/ ojs-dev_private-files/
-rsync -avzP --delete ojs-prod_public-files/ ojs-dev_public-files/
-
-# You might not want to do this one! See docs below.
-rsync -avzP --delete ojs-prod_plugins/ ojs-dev_plugins/
+# Read "Mirroring plugins" below before using this to test an upgrade
+./docker/volsync.sh -vP --delete vol:ojs-prod_plugins vol:ojs-dev_plugins
 ```
 
 The SQL dump is slightly more annoying; you *could* rsync, but that's not
@@ -277,7 +296,11 @@ export devpath=/path/to/ojs/dev
 
 Then:
 
-- Delete the dev db volume, e.g., `podman volume rm ojs-dev_db`
+- Stop dev and empty its db volume, since MariaDB only imports into an empty
+  database. Don't `podman volume rm` it (see [Volume files](#volume-files)).
+  ```bash
+  podman run --rm --entrypoint find -v ojs-dev_db:/vol localhost/ojs-dev_web /vol -mindepth 1 -delete
+  ```
 - Configure dev's compose stack to mount the SQL in
 - Start the DB container, wait for the import to complete, and shut it down
 - Remove the SQL override
@@ -302,16 +325,13 @@ whole domain, so browsers send prod's session cookie to dev as well:
   podman compose exec db sh -c 'mariadb -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "TRUNCATE sessions"'
   ```
 
-### Do *not* mirror plugins for upgrading!
+### Mirroring plugins
 
-If the purpose is to test an upgrade, the plugin volume should *not* be
-mirrored, and may in fact need to be destroyed manually since podman volumes
-are only populated with image data if they're empty ("copy up").
-
-Why do we need this? OJS upgrades, even when they claim "No breaking changes,"
-can alter the core plugins. Which sit in the **same directory as custom
-plugins**. So we have to reinstall plugins on top of core rather than just
-doing a plugin backup and restore.
+Mirror the plugins volume too, so dev gets prod's non-core plugins. To test an
+upgrade on dev, follow [Upgrading a site](#upgrading-a-site), which resets the
+volume to the new image's plugins. Don't just start the new image on the
+mirrored volume: it would keep prod's copies of the *old* core plugins, since
+OJS keeps core and non-core plugins in the same directory.
 
 ## Development
 
@@ -337,8 +357,8 @@ use rsync.
 
 Don't just set up your compose stack to use all the mirrored volumes directly!
 The public and private files are probably fine to use, but prod's config will
-definitely not work in local dev, and you occasionally don't want to use the
-mirrored plugins (e.g., in an upgrade situation).
+definitely not work in local dev, and mirrored plugins need special handling in
+an upgrade (see [Upgrading a site](#upgrading-a-site)).
 
 ### Setting up admins
 
@@ -391,34 +411,177 @@ for instance.
 Captured emails can also be browsed at `/smtp-debug-logs/`, e.g.,
 `http://localhost:8080/smtp-debug-logs/`.
 
-### Upgrading
+## Upgrading
 
-To do an upgrade, there are several manual steps to take:
+Upgrading has two parts: updating this repo for the new OJS version, then
+upgrading each site's data. Before either, read the entire [PKP OJS upgrade
+guide][ojs-upgrade] and the release notes: *even build upgrades* often need
+database upgrades, plugin changes, etc.
 
-- Config: Look at all differences from the old config template to the new base
-  OJS config file. Alternatively, look at the diff from the old OJS base config
-  to the new.
-  - Using the *new* base config, re-apply all settings that need to have `.env`
-    overrides available
+[ojs-upgrade]: <https://docs.pkp.sfu.ca/dev/upgrade-guide/en/>
+
+### Updating the repo
+
+This can be done in a local development instance with no risk to production or
+our dev-slash-staging environment.
+
+- Config: Look at what changed between the old and new OJS config templates,
+  and carry those changes into `docker/config/config.base.inc.php`.
+  `docker/config-diff.sh` handles both (it pulls the templates from PKP's
+  GitHub tags):
+  ```bash
+  # Show what upstream changed
+  ./docker/config-diff.sh 3.5.0-3 3.5.0-6
+
+  # Merge upstream's changes into our base config, then review with "git diff"
+  ./docker/config-diff.sh --merge 3.5.0-3 3.5.0-6
+  ```
+  - If the merge reports conflicts, resolve the markers it leaves, keeping our
+    `${...}` placeholders where settings need `.env` overrides
   - Determine if new settings need to be exposed via `.env`. If so, modify
     config, modify `.env.example`, and make sure the settings are applied in
     `ojs.compose.yml`'s `x-ojs-env` section.
   - Make sure the above "Config" section is still valid.
-- Container / image reset:
-  - Check the PHP version with what the new OJS requires. Modify the Docker
-    `FROM` line if it's changed.
-  - Modify the `curl` line in the Dockerfile to pull the updated OJS tarball.
-  - Rebuild the docker image (e.g., `podman compose build`). Consider pulling
-    the latest PHP image first, as well as using `--no-cache` to ensure a fully
-    clean and updated build.
-  - Delete all volumes. Remember this is for *dev upgrades*, **not**
-    production!
-- Do the web install (see [New site](#new-site)) and you should be set.
+- Image:
+  - Check the PHP version with what the new OJS requires, and update
+    `PHP_VERSION` in the Dockerfile if it's changed.
+  - Update `OJS_VERSION` in the Dockerfile.
 
-**Note**: this process is for upgrading OJS *in this repo*. Production updates
-might be similar, *but we do not know. They may be completely different in ways
-we can't even guess right now*. Until we have a production setup to upgrade,
-this documentation won't cover that scenario.
+### Upgrading a site
+
+Also done in dev. Get a fresh mirror of prod (see [Mirror prod to
+staging](#mirror-prod-to-staging-dev)), and only upgrade prod when the dev
+upgrade is good.
+
+#### Plugins
+
+OJS keeps gallery and uploaded plugins in the same directory as its core
+plugins, so this is annoying. Then podman only copies an image's files into a
+volume the first time a container mounts it, and only if it's empty (which is
+good, but important to know), so a new image never updates the core plugins in
+an existing volume.
+
+When doing a build upgrade, we can generally reinstall plugins in place: back
+up the volume, reset it to the new image's plugins, copy the non-core plugins
+back in, and only then run OJS's upgrade tool. The upgrade only installs (and
+records versions for) the plugins it finds on disk. PKP's guide has us
+reinstall after the upgrade, but then the site is broken in the interim.
+
+For a bigger upgrade, we either have to check each plugin (via [PKP's XML
+plugin list][pkp-plugin-xml]) or else just follow the PKP guide and let the
+site break briefly.
+
+[pkp-plugin-xml]: <https://pkp.sfu.ca/ojs/xml/plugins.xml>
+
+#### Steps
+
+These examples use `ojs-prod` as the compose project name. All commands are run
+as the podman user, and from the checkout location (e.g., `/srv/journals/app`).
+They never read or write a volume's files through a host path, since volumes
+may not be where podman says they are (see [Volume files](#volume-files)).
+
+1. Wait for the job queue to be empty:
+   ```bash
+   podman compose exec -u www-data web php lib/pkp/tools/jobs.php total
+   ```
+2. Stop the stack, then update the checkout to the new version, since the next
+   steps use its scripts. Don't build yet: that waits for the backups.
+   ```bash
+   systemctl --user stop "ojs@$(systemd-escape --path "$PWD")"
+   ```
+3. Back up the database and the plugins volume. Give MariaDB a few seconds to
+   start before the dump, and make sure the dump's last line says "Dump
+   completed":
+   ```bash
+   backup=/path/to/backups/ojs-upgrade-$(date +%F)
+   mkdir -p $backup
+   podman compose up -d db
+   podman compose exec -T db sh -c 'mariadb-dump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' > $backup/db.sql
+   tail -n1 $backup/db.sql
+   ./docker/volsync.sh vol:ojs-prod_plugins $backup/plugins
+   ```
+   PKP's guide says to back up the private and public files too. They're huge,
+   so keep those in a directory you reuse between upgrades, where rsync only
+   copies what changed:
+   ```bash
+   mkdir -p /path/to/backups/ojs-files
+   for vol in private-files public-files; do
+     ./docker/volsync.sh --delete vol:ojs-prod_$vol /path/to/backups/ojs-files/$vol
+   done
+   ```
+4. Tag the current images, so they're still around after the build replaces
+   them. The plugin list (step 6) needs the old web image, and rolling back
+   needs all three.
+   ```bash
+   for svc in web worker scheduler; do
+     podman tag localhost/ojs-prod_$svc localhost/ojs-prod_$svc:pre-upgrade
+   done
+   ```
+5. Rebuild the images (`podman compose build`). Consider pulling the latest PHP
+   image first, as well as using `--no-cache` to ensure a fully clean and
+   updated build.
+6. List the non-core plugins to put back. The list only has plugins neither
+   image has. Read the notes it prints about plugins that the new version adds
+   to or drops from core.
+   ```bash
+   podman unshare ./docker/plugin-diff.sh --upgrade $backup/plugins image:localhost/ojs-prod_web:pre-upgrade image:localhost/ojs-prod_web > $backup/restore.txt
+   cat $backup/restore.txt
+   ```
+   Check the list by eye, too: it assumes the volume's core plugins came from
+   the image that was running. If they came from an older image (e.g., an
+   earlier upgrade didn't reset the volume), any core plugins dropped since
+   then show up as non-core.
+7. Reset the plugins and cache volumes to the new image's files: empty each
+   one, and copy in the image's copy of that directory. Don't remove and
+   recreate the volumes instead, which can leave the old files in place (see
+   [Volume files](#volume-files)).
+   ```bash
+   podman run --rm --entrypoint sh \
+     -v ojs-prod_plugins:/vols/plugins -v ojs-prod_cache:/vols/cache \
+     localhost/ojs-prod_web -ec '
+       for d in plugins cache; do
+         find /vols/$d -mindepth 1 -delete
+         cp -a /var/www/html/$d/. /vols/$d/
+       done'
+   ```
+8. For a build upgrade, you can put the non-core plugins back (bigger upgrades
+   require a plugin reinstall through the gallery UI):
+   ```bash
+   ./docker/volsync.sh --files-from=$backup/restore.txt $backup/plugins vol:ojs-prod_plugins
+   ```
+9. Run OJS's upgrade tool. `check` should show the old and new versions you
+   expect. The upgrade can take a while, so keep its output.
+   ```bash
+   podman compose run --rm -T web setpriv --reuid=www-data --regid=www-data --init-groups php tools/upgrade.php check
+   podman compose run --rm -T web setpriv --reuid=www-data --regid=www-data --init-groups php tools/upgrade.php upgrade | tee $backup/upgrade.log
+   ```
+10. Shut down the database the steps above started, and start the stack
+    through systemd:
+    ```bash
+    podman compose down
+    systemctl --user start "ojs@$(systemd-escape --path "$PWD")"
+    ```
+11. Test the site with the checklist in PKP's guide ("Test the Upgrade"), and
+    make sure every journal's theme loads, since most of prod's themes come
+    from the gallery. To see which gallery plugins have newer releases for the
+    new version (they can be upgraded from the gallery as usual):
+    ```bash
+    podman compose exec -u www-data web php lib/pkp/tools/plugins.php list | grep installedVersionOlder
+    ```
+
+Keep the backups and the `pre-upgrade` images until you're sure the upgrade
+worked. To roll back:
+
+- Stop the stack, check out the previous release, and tag each `pre-upgrade`
+  image as `latest` again
+- Load `db.sql` into an *empty* database, e.g., by emptying the db volume and
+  importing, like in [Mirror prod to staging](#mirror-prod-to-staging-dev).
+  Loading it over the upgraded database leaves behind the tables the upgrade
+  added, which can trip up the next upgrade attempt.
+- Reset the plugins and cache volumes (step 7, which now copies the old
+  image's files), then copy the whole plugins backup in: `./docker/volsync.sh
+  --delete $backup/plugins vol:ojs-prod_plugins`
+- Shut down the database and start the stack (step 10)
 
 ## Custom OJS Work
 
