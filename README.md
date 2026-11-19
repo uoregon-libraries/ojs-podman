@@ -145,15 +145,30 @@ after editing `.env`, run `up -d`.
    - The database settings must match the `MYSQL_` vars in `.env`. For dev
      that's "db" for the host, and "ojs" for the username, password, and
      database name.
+   - The time zone must match the base config's `time_zone` (for us,
+     America/Los_Angeles). See below for why.
 4. When the install is done, OJS says it couldn't write the config, and shows
    what it would have written. That's expected: OJS's copy of the config is
    read-only, and the base config already gets those settings from `.env`.
    (Ignore the app key it shows, too: OJS uses `OJS_APP_KEY`.)
 5. Set `OJS_INSTALLED=On` in `.env`, and run `up -d`.
 
-Since the installer can't write the config, its time zone and OAI repository
-ID fields don't do anything: OJS uses the base config's time zone and
-`OJS_OAI_REPOSITORY_ID`.
+Since the installer can't write the config, its OAI repository ID field
+doesn't do anything: OJS uses `OJS_OAI_REPOSITORY_ID`.
+
+The time zone field doesn't reach the config either, but the installer still
+uses it for every date it writes. OJS stores dates in local time, so if the
+installer's time zone differs from the base config's, those dates are off by
+the difference. The worst case is the admin's role: if the installer's time
+zone is ahead of the config's (e.g., the installer's default, UTC, is 7-8
+hours ahead of Pacific time), the role starts in the future, and the admin
+has no "Administration" link until it does. To fix that after the fact, shift
+the role's start back by the difference, e.g., for UTC vs. Pacific standard
+time:
+
+```bash
+podman compose exec db sh -c 'mariadb -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "UPDATE user_user_groups SET date_start = date_start - INTERVAL 8 HOUR"'
+```
 
 #### Existing site
 
